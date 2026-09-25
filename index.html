@@ -15,6 +15,12 @@
   .row input[type=number] { width:70px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:4px; padding:4px; }
   button, a.btn { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font:inherit; cursor:pointer; text-decoration:none; }
   button.secondary { background:#3a3144; }
+  #icons { margin-top:6px; }
+  #icons .cat { display:flex; gap:4px; align-items:flex-start; margin:4px 0; }
+  #icons .cat span { color:var(--muted); flex:0 0 80px; font-size:13px; line-height:30px; }
+  #icons .cat div { display:flex; flex-wrap:wrap; gap:4px; }
+  #icons button { background:var(--panel); border:1px solid #3a3144; padding:4px; line-height:0; }
+  #icons img { height:20px; image-rendering:pixelated; }
   #out { display:grid; gap:12px; margin-top:16px; }
   .item { background:var(--panel); border-radius:6px; padding:10px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
   .item img, .item canvas { image-rendering:pixelated; max-width:100%; }
@@ -23,9 +29,11 @@
 <body>
 <main>
   <h1>Shadow GIFs</h1>
-  <textarea id="texts" placeholder="One button per line">Shadow Farming is GOATED</textarea>
+  <textarea id="texts" placeholder="One button per line">:enderman: Enderman in Paris :chorus_fruit:</textarea>
+  <div id="icons"></div>
   <div class="row">
     <label>Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
+    <label>Icon size <input id="isize" type="number" min="4" max="18" value="12"></label>
     <label>Width (MC px, 0 = auto) <input id="width" type="number" min="0" value="0"></label>
     <label>Color 1 <input id="c1" type="color" value="#865cff"></label>
     <label>Color 2 <input id="c2" type="color" value="#ff5cd6"></label>
@@ -36,6 +44,7 @@
   </div>
   <div id="out"></div>
 </main>
+<script src="icons.js"></script>
 <script type="module">
 import { GIFEncoder, quantize, applyPalette } from "https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.esm.js";
 
@@ -71,6 +80,37 @@ await new Promise(res => {
 });
 const glyph = c => glyphs[c] || glyphs["?"];
 
+// --- icons (icons.js, made by build_icons.py): 16px sources, drawn in full colour at iconSize ---
+const iconSrc = Object.assign({}, ...Object.values(window.ICONS));
+const iconImg = {};
+await Promise.all(Object.entries(iconSrc).map(([name, src]) => new Promise(res => {
+  const img = new Image();
+  img.onload = res;
+  img.src = src;
+  iconImg[name] = img;
+})));
+let iconSize = 12;
+const iconCache = {};
+function getIcon(name) {  // scaled pixel data, cached per size; smooth when shrinking, crisp when growing
+  const key = name + "@" + iconSize;
+  if (!iconCache[key]) {
+    const img = iconImg[name], k = iconSize / 16;
+    const w = Math.max(1, Math.round(img.width * k)), h = Math.max(1, Math.round(img.height * k));
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    ctx.imageSmoothingEnabled = k < 1;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, w, h);
+    iconCache[key] = { w, h, data: ctx.getImageData(0, 0, w, h).data };
+  }
+  return iconCache[key];
+}
+// text -> tokens: ":name:" becomes an icon, everything else a glyph
+const tokenize = text => text.split(/(:[a-z_]+:)/).flatMap(p =>
+  /^:.*:$/.test(p) && iconImg[p.slice(1, -1)] ? [{ icon: getIcon(p.slice(1, -1)) }] : [...p]);
+const tokW = t => t.icon ? t.icon.w : glyph(t).w;
+
 // --- rendering (same look as mc_button_gif.py) ---
 const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const mix = (a, b, t) => a.map((x, i) => Math.round(x + (b[i] - x) * t));
@@ -88,15 +128,26 @@ function renderFrame(text, w, t, c1, c2) {
   for (let x = w - 2; x >= 0; x--) perim.push([x, H - 1]);
   for (let y = H - 2; y > 0; y--) perim.push([0, y]);
   perim.forEach(([x, y], i) => set(x, y, mix(grad(mod1(i / perim.length * 2 - t), c1, c2), EDGE, 0.15)));
-  const chars = [...text];
-  const tw = chars.reduce((s, c) => s + glyph(c).w + 1, 0) - 1;
+  const chars = tokenize(text);
+  const tw = chars.reduce((s, c) => s + tokW(c) + 1, 0) - 1;
   let x0 = Math.floor((w - tw) / 2);
   const y0 = Math.floor((H - 8) / 2);
   chars.forEach((c, i) => {
+    const dy = Math.round(Math.sin(2 * Math.PI * (t * 2 - i / 8)));
+    if (c.icon) {  // centred on the text line; 16px + bob stays inside the border rows
+      const { w: iw, h: ih, data } = c.icon, iy = Math.floor((H - ih) / 2) + dy;
+      for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) {
+        const si = (y * iw + x) * 4, a = data[si + 3] / 255;
+        const X = x0 + x, Y = iy + y, di = (Y * w + X) * 4;
+        if (a && X >= 0 && X < w && Y >= 0 && Y < H)
+          set(X, Y, [0, 1, 2].map(k => Math.round(px[di + k] * (1 - a) + data[si + k] * a)));
+      }
+      x0 += iw + 1;
+      return;
+    }
     const g = glyph(c);
     const col = grad(mod1(i / Math.max(chars.length, 1) - t), c1, c2);
     const shadow = col.map(v => Math.floor(v / 4));
-    const dy = Math.round(Math.sin(2 * Math.PI * (t * 2 - i / 8)));
     const draw = (ox, oy, color) => g.mask.forEach(([gx, gy]) => {
       const x = x0 + ox + gx, y = y0 + oy + gy;
       if (x >= 0 && x < w && y >= 0 && y < H) set(x, y, color);
@@ -118,7 +169,7 @@ function upscale(px, w, s) {
 }
 
 function makeGif(text, scale, width, c1, c2) {
-  const tw = [...text].reduce((s, c) => s + glyph(c).w + 1, 0);
+  const tw = tokenize(text).reduce((s, c) => s + tokW(c) + 1, 0);
   const w = width || Math.max(tw + 40, 200);
   const gif = GIFEncoder();
   for (let f = 0; f < FRAMES; f++) {
@@ -133,16 +184,34 @@ function makeGif(text, scale, width, c1, c2) {
 // --- UI ---
 const $ = id => document.getElementById(id);
 let made = [];
+for (const [cat, list] of Object.entries(window.ICONS)) {
+  const row = document.createElement("div");
+  row.className = "cat";
+  row.innerHTML = `<span>${cat}</span><div></div>`;
+  for (const [name, src] of Object.entries(list)) {
+    const b = document.createElement("button");
+    b.type = "button"; b.title = name;
+    b.innerHTML = `<img src="${src}" alt="${name}">`;
+    b.onclick = () => {
+      const ta = $("texts");
+      ta.setRangeText(`:${name}:`, ta.selectionStart, ta.selectionEnd, "end");
+      ta.focus();
+    };
+    row.lastChild.append(b);
+  }
+  $("icons").append(row);
+}
 $("make").onclick = () => {
   const lines = $("texts").value.split("\n").map(s => s.trim()).filter(Boolean);
   const scale = Math.max(1, +$("scale").value || 2), width = +$("width").value || 0;
   const c1 = hex($("c1").value), c2 = hex($("c2").value);
+  iconSize = Math.min(18, Math.max(4, +$("isize").value || 12));
   made.forEach(m => URL.revokeObjectURL(m.url));
   made = [];
   $("out").innerHTML = "";
   for (const text of lines) {
     const url = URL.createObjectURL(makeGif(text, scale, width, c1, c2));
-    const name = ([...text].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "button") + ".gif";
+    const name = ([...text.replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "button") + ".gif";
     made.push({ url, name });
     const item = document.createElement("div");
     item.className = "item";
