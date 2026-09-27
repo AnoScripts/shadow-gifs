@@ -164,7 +164,7 @@ const mod1 = x => ((x % 1) + 1) % 1;
 const pitch = rows => Math.max(10, rows.some(r => r.some(c => c.icon)) ? iconSize + 2 : 0);
 const height = rows => 20 + (rows.length - 1) * pitch(rows);
 const rowW = chars => chars.reduce((s, c) => s + tokW(c) + 1, 0) - 1;
-const period = rows => Math.max(...rows.map(rowW)) + 24;  // moving: text repeats every widest line + gap
+const period = rows => Math.max(...rows.map(rowW)) + 1;  // moving: text repeats back to back (1 px letter spacing); trailing spaces add a gap
 
 // t in [0,1) is one loop; a = t * cycles drives border/gradient/wave so long moving loops keep button speed
 function renderFrame(rows, w, t, c1, c2, cycles = 1) {
@@ -336,7 +336,8 @@ for (const [cat, list] of Object.entries(window.ICONS)) {
   }
   $("icons").append(row);
 }
-const getLines = () => $("texts").value.split("\n").map(s => s.trim()).filter(Boolean);
+const getLines = () => $("texts").value.split("
+").map(s => mode === "moving" ? s : s.trim()).filter(s => s.trim());  // moving keeps spaces: they are the gap
 const clamp = (id, lo, hi, def) => Math.min(hi, Math.max(lo, $(id).value === "" ? def : +$(id).value));
 function readOpts() {
   iconSize = clamp("isize", 4, 18, 12);
