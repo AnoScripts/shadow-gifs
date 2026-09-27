@@ -8,7 +8,10 @@
   :root { --bg:#1b1720; --panel:#26202d; --text:#eee; --muted:#a99bb8; --accent:#b06cff; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:15px/1.4 system-ui, sans-serif; }
-  main { max-width:760px; margin:0 auto; padding:24px 16px; }
+  main { max-width:1280px; margin:0 auto; padding:24px 16px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 24px; align-items:start; }
+  h1 { grid-column:1 / -1; }
+  #icons { position:sticky; top:12px; max-height:calc(100vh - 24px); overflow-y:auto; background:var(--panel); border-radius:6px; padding:4px 10px 10px; }
+  @media (max-width:800px) { main { grid-template-columns:minmax(0,1fr); } #icons { position:static; max-height:none; } }
   h1 { font-size:20px; margin:0 0 16px; }
   textarea { width:100%; min-height:110px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:6px; padding:10px; font:inherit; }
   fieldset { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; margin:12px 0; border:1px solid #3a3144; border-radius:6px; padding:8px 12px 12px; color:var(--muted); }
@@ -16,11 +19,10 @@
   fieldset input[type=number] { width:70px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:4px; padding:4px; }
   button, a.btn { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font:inherit; cursor:pointer; text-decoration:none; }
   button.secondary { background:#3a3144; }
-  #icons { margin-top:6px; }
-  #icons .cat { display:flex; gap:4px; align-items:flex-start; margin:4px 0; }
-  #icons .cat span { color:var(--muted); flex:0 0 80px; font-size:13px; line-height:30px; }
+  #icons .cat { margin:8px 0; }
+  #icons .cat span { display:block; color:var(--muted); font-size:13px; margin-bottom:4px; }
   #icons .cat div { display:flex; flex-wrap:wrap; gap:4px; }
-  #icons button { background:var(--panel); border:1px solid #3a3144; padding:4px; line-height:0; }
+  #icons button { background:var(--bg); border:1px solid #3a3144; padding:4px; line-height:0; }
   #icons img { height:20px; image-rendering:pixelated; }
   #out { display:grid; gap:12px; margin-top:16px; }
   .item { background:var(--panel); border-radius:6px; padding:10px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
@@ -30,6 +32,7 @@
 <body>
 <main>
   <h1>Shadow GIFs</h1>
+  <div>
   <textarea id="texts" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
   <div id="out"></div>
   <fieldset>
@@ -52,6 +55,7 @@
     <label>Wave (px) <input id="wave" type="number" min="0" max="2" value="1"></label>
     <label><input id="shadow" type="checkbox" checked> Text shadow</label>
   </fieldset>
+  </div>
   <div id="icons"></div>
 </main>
 <script src="icons.js"></script>
