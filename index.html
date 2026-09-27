@@ -12,7 +12,7 @@
   main { max-width:1280px; margin:0 auto; padding:0 16px 24px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 24px; align-items:start; }
   header { position:sticky; top:0; z-index:1; display:flex; flex-wrap:wrap; align-items:center; gap:8px 20px; background:var(--bg); padding:12px 16px; margin-bottom:16px; border-bottom:1px solid #3a3144; }
   #icons { position:sticky; top:76px; max-height:calc(100vh - 88px); overflow-y:auto; background:var(--panel); border-radius:6px; padding:4px 10px 10px; }
-  main[data-mode=banner] [data-only=text], main:not([data-mode=banner]) [data-only=banner] { display:none; }
+  [hidden] { display:none !important; }
   main[data-mode=banner] { grid-template-columns:minmax(0,760px); justify-content:center; }
   #cmd { min-height:90px; font:12px/1.4 ui-monospace, monospace; }
   @media (max-width:800px) { main { grid-template-columns:minmax(0,1fr); } #icons { position:static; max-height:none; } }
@@ -21,6 +21,10 @@
   fieldset { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; margin:12px 0; border:1px solid #3a3144; border-radius:6px; padding:8px 12px 12px; color:var(--muted); }
   legend { color:var(--text); font-size:13px; padding:0 4px; }
   fieldset input[type=number] { width:70px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:4px; padding:4px; }
+  select { appearance:none; background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a99bb8'/%3E%3C/svg%3E") no-repeat right 10px center; color:var(--text); border:1px solid #3a3144; border-radius:6px; padding:6px 30px 6px 10px; font:inherit; text-transform:capitalize; cursor:pointer; }
+  select:hover { border-color:var(--accent); }
+  select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px #b06cff44; }
+  option { background:var(--panel); color:var(--text); }
   button, a.btn { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font:inherit; cursor:pointer; text-decoration:none; }
   button.secondary, #tabs button[aria-pressed=false] { background:#3a3144; }
   #tabs { display:flex; gap:6px; }
@@ -36,29 +40,41 @@
 </head>
 <body>
   <header><h1>Shadow GIFs</h1>
-  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="moving" aria-pressed="false">Moving</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button></nav></header>
+  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="moving" aria-pressed="false">Moving</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button><button type="button" data-mode="sign" aria-pressed="false">Sign</button></nav></header>
 <main data-mode="button">
   <div>
   <textarea id="cmd" data-only="banner" placeholder="Paste a /give command for a banner">give @p minecraft:black_banner[banner_patterns=[{"pattern":"minecraft:stripe_right","color":"black"},{"pattern":"minecraft:stripe_downleft","color":"red"},{"pattern":"minecraft:gradient","color":"black"},{"pattern":"minecraft:bricks","color":"black"},{"pattern":"minecraft:straight_cross","color":"magenta"},{"pattern":"minecraft:skull","color":"purple"},{"pattern":"minecraft:stripe_downright","color":"red"},{"pattern":"minecraft:stripe_bottom","color":"black"},{"pattern":"minecraft:stripe_center","color":"black"},{"pattern":"minecraft:creeper","color":"black"},{"pattern":"minecraft:triangle_top","color":"black"},{"pattern":"minecraft:square_bottom_left","color":"black"},{"pattern":"minecraft:square_top_left","color":"black"}]]</textarea>
+  <textarea id="signtext" data-only="sign" placeholder="Up to 4 lines">Shadow Gang&#10;:diamond_sword: join :diamond_sword:&#10;the gang</textarea>
+  <fieldset data-only="sign">
+    <legend>Sign</legend>
+    <label>Type <select id="stype"><option value="standing">Standing</option><option value="wall">Wall</option><option value="hanging">Hanging</option></select></label>
+    <label>Wood <select id="wood"></select></label>
+    <label>Text color <select id="scolor"></select></label>
+    <label><input id="glow" type="checkbox"> Glowing text</label>
+    <label><input id="typewriter" type="checkbox" checked> Typewriter</label>
+  </fieldset>
   <fieldset data-only="banner">
     <legend>Banner</legend>
-    <label>Size (px per pixel) <input id="bsize" type="number" min="1" max="12" value="5"></label>
-    <label>View angle (°) <input id="yaw" type="number" min="-90" max="90" step="5" value="25"></label>
-    <label><input id="spin" type="checkbox"> Spin</label>
-    <label>Sway (°) <input id="sway" type="number" min="0" max="45" value="8"></label>
     <label>Ripple (px) <input id="ripple" type="number" min="0" max="4" step="0.5" value="1"></label>
     <label><input id="bar" type="checkbox" checked> Wooden bar on top</label>
+  </fieldset>
+  <fieldset data-only="banner sign">
+    <legend>Look</legend>
+    <label>Size (px per pixel) <input id="bsize" type="number" min="1" max="12" value="5"></label>
+    <label data-only="banner">View angle (°) <input id="yaw" type="number" min="-90" max="90" step="5" value="25"></label>
+    <label data-only="banner"><input id="spin" type="checkbox"> Spin</label>
+    <label data-only="banner">Sway (°) <input id="sway" type="number" min="0" max="45" value="8"></label>
     <label>Outline opacity <input id="outline" type="range" min="0" max="1" step="0.05" value="0.1"> <output id="outlineVal">0.1</output></label>
   </fieldset>
-  <textarea id="texts" data-only="text" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
-  <fieldset data-only="text">
+  <textarea id="texts" data-only="button moving" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
+  <fieldset data-only="button moving sign">
     <legend>Size</legend>
-    <label>Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
-    <label>Width (MC px, 0 = auto) <input id="width" type="number" min="0" value="0"></label>
-    <button id="fit" type="button" class="secondary">Fit to text</button>
+    <label data-only="button moving">Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
+    <label data-only="button moving">Width (MC px, 0 = auto) <input id="width" type="number" min="0" value="0"></label>
+    <button id="fit" type="button" class="secondary" data-only="button moving">Fit to text</button>
     <label>Icon size <input id="isize" type="number" min="4" max="18" value="12"></label>
   </fieldset>
-  <fieldset data-only="text">
+  <fieldset data-only="button moving sign">
     <legend>Colors</legend>
     <label>Color 1 <input id="c1" type="color" value="#865cff"></label>
     <label>Color 2 <input id="c2" type="color" value="#ff5cd6"></label>
@@ -68,14 +84,14 @@
   <fieldset>
     <legend>Motion</legend>
     <label>Speed (ms/frame) <input id="ms" type="number" min="20" max="200" step="10" value="60"></label>
-    <label data-only="text">Wave (px) <input id="wave" type="number" min="0" max="2" value="1"></label>
-    <label data-only="text"><input id="shadow" type="checkbox" checked> Text shadow</label>
+    <label data-only="button moving">Wave (px) <input id="wave" type="number" min="0" max="2" value="1"></label>
+    <label data-only="button moving"><input id="shadow" type="checkbox" checked> Text shadow</label>
   </fieldset>
   <div id="out"></div>
   </div>
-  <div id="icons" data-only="text"></div>
+  <div id="icons" data-only="button moving sign"></div>
 </main>
-<script src="icons.js?v=2"></script>
+<script src="icons.js?v=3"></script>
 <script type="module">
 import { GIFEncoder, quantize, applyPalette } from "https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.esm.js";
 
@@ -248,11 +264,11 @@ const pixels = src => new Promise(res => {
     c.width = img.width; c.height = img.height;
     const ctx = c.getContext("2d");
     ctx.drawImage(img, 0, 0);
-    res(ctx.getImageData(0, 0, img.width, img.height).data);
+    res(ctx.getImageData(0, 0, img.width, img.height));
   };
   img.src = src;
 });
-const BTEX = Object.fromEntries(await Promise.all(Object.entries(window.BANNER).map(async ([n, src]) => [n, await pixels(src)])));
+const BTEX = Object.fromEntries(await Promise.all(Object.entries(window.BANNER).map(async ([n, src]) => [n, (await pixels(src)).data])));
 function parseBanner(cmd) {  // "<color>_banner[banner_patterns=[{pattern, color}, ...]]", unknown patterns/colors skipped
   const base = /(?:^|[:\s])([a-z_]+)_banner\b/.exec(cmd)?.[1];
   const layers = [...cmd.matchAll(/\{[^{}]*\}/g)]
@@ -271,45 +287,54 @@ function bannerTexture({ base, layers }) {  // 20x40 RGB: each greyscale layer x
   }
   return out;
 }
-let bopt = {};  // set from the Banner inputs
+let bopt = {};  // set from the Banner / Sign / 3D inputs
 const OUTLINE_BG = [49, 51, 56];  // Discord dark theme chat background (#313338)
-// one frame: forward-splat texel samples (~3 per output px) through ripple, sway (pitch about the top), yaw and perspective, z-buffered.
-// Without `box` it only measures the projected bounds (texel units); makeBannerGif unions them over all frames so nothing gets cut off.
-function bannerFrame(tex, a, box) {
-  const { size: k, yaw, spin, sway, ripple, bar, outline } = bopt, D = 80;
-  const m = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity }, W = box?.W, H = box?.H;
+// A "card" is a flat RGBA picture drawn in 3D: { w, h, rgba, k: screen px per picture px, pivot: row the sway turns
+// around, fixed: top rows that stay put (banner bar), ripple: cloth wave amplitude below the pivot }.
+// banner: picture = bar (2 rows) + 20x40 cloth, pivot 2, fixed 2
+function bannerCard(banner) {
+  const tex = bannerTexture(banner), w = 20, h = 42, rgba = new Uint8ClampedArray(w * h * 4);
+  if (bopt.bar) rgba.set(BTEX.bar);
+  for (let i = 0; i < 800; i++) rgba.set([tex[i * 3], tex[i * 3 + 1], tex[i * 3 + 2], 255], (40 + i) * 4);
+  return { w, h, rgba, k: bopt.size, pivot: 2, fixed: 2, ripple: bopt.ripple };
+}
+// one frame: forward-splat picture samples (~3 per output px) through ripple, sway, yaw and perspective, z-buffered.
+// Without `box` it only measures the projected bounds (picture units); makeCardGif unions them over all frames so nothing gets cut off.
+function cardFrame(pic, a, box) {
+  const { yaw, spin, sway, outline } = bopt, { w: pw, h: phh, rgba, k, pivot, fixed = 0, ripple = 0 } = pic;
+  const D = 2 * Math.max(pw, phh), m = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity }, W = box?.W, H = box?.H;
   const px = box && new Uint8ClampedArray(W * H * 4), zb = box && new Float32Array(W * H).fill(Infinity);
   const th = sway * Math.PI / 180 * Math.sin(2 * Math.PI * a), ct = Math.cos(th), st = Math.sin(th);
   const ph = yaw * Math.PI / 180 + (spin ? 2 * Math.PI * a : 0), cp = Math.cos(ph), sp = Math.sin(ph);
-  const splat = (u, v, z, dzdv, swing, col) => {
-    const x = u - 10, y = swing ? v * ct - z * st : v, zz = swing ? v * st + z * ct : z;
+  const splat = (u, v, z, dzdv, swing, i4) => {
+    const x = u - pw / 2, dv = v - pivot;
+    const y = swing ? pivot + dv * ct - z * st : v, zz = swing ? dv * st + z * ct : z;
     const X = x * cp + zz * sp, Z = -x * sp + zz * cp, s = D / (D + Z);
     if (!box) {
       m.x0 = Math.min(m.x0, X * s); m.x1 = Math.max(m.x1, X * s); m.y0 = Math.min(m.y0, y * s); m.y1 = Math.max(m.y1, y * s);
       return;
     }
-    const sx = Math.round((X * s - box.x0) * k) + 2, sy = Math.round((y * s - box.y0) * k) + 2, i = sy * W + sx;
+    const sx = Math.round((X * s - box.x0) * k) + box.pad, sy = Math.round((y * s - box.y0) * k) + box.pad, i = sy * W + sx;
     if (sx < 0 || sx >= W || sy < 0 || sy >= H || Z >= zb[i]) return;
     // light = how much the normal (0, -dz/dv, 1) faces the camera after sway + yaw; the back shows mirrored, like in game
     const nz = swing ? -dzdv * st + ct : 1, l = 0.55 + 0.45 * Math.abs(nz * cp) / Math.hypot(1, dzdv);
     zb[i] = Z;
-    px[i * 4] = col[0] * l; px[i * 4 + 1] = col[1] * l; px[i * 4 + 2] = col[2] * l; px[i * 4 + 3] = 255;
+    px[i * 4] = rgba[i4] * l; px[i * 4 + 1] = rgba[i4 + 1] * l; px[i * 4 + 2] = rgba[i4 + 2] * l; px[i * 4 + 3] = 255;
   };
-  const step = 0.35 / k, w = 2 * Math.PI / 25, ph2 = 2 * Math.PI * a;
-  for (let v = 0; v < 40; v += step) {  // ripple: wave running down the cloth, growing towards the free bottom edge
-    const amp = ripple * v / 40, z = amp * Math.sin(w * v - ph2);
-    const dzdv = ripple / 40 * Math.sin(w * v - ph2) + amp * w * Math.cos(w * v - ph2);
-    for (let u = 0; u < 20; u += step) {
-      const i = (Math.floor(v) * 20 + Math.floor(u)) * 3;
-      splat(u, v, z, dzdv, true, [tex[i], tex[i + 1], tex[i + 2]]);
+  // measuring only needs ~1 picture px accuracy, the padding covers the rest
+  const step = box ? 0.35 / k : 1, wl = 2 * Math.PI / 25, ph2 = 2 * Math.PI * a, len = Math.max(1, phh - pivot);
+  for (let v = 0; v < phh; v += step) {
+    const row = Math.floor(v), still = row < fixed;
+    // ripple: wave running down from the pivot, growing towards the free bottom edge
+    const dv = Math.max(0, v - pivot), amp = ripple * dv / len, z = amp * Math.sin(wl * dv - ph2);
+    const dzdv = ripple / len * Math.sin(wl * dv - ph2) + amp * wl * Math.cos(wl * dv - ph2);
+    for (let u = 0; u < pw; u += step) {
+      const i4 = (row * pw + Math.floor(u)) * 4;
+      if (rgba[i4 + 3]) splat(u, v, still ? -0.5 : z, still ? 0 : dzdv, !still, i4);
     }
   }
-  if (bar) for (let v = -2; v < 0; v += step) for (let u = 0; u < 20; u += step) {
-    const t = BTEX.bar, i = (Math.floor(v + 2) * 20 + Math.floor(u)) * 4;
-    splat(u, v, -0.5, 0, false, [t[i], t[i + 1], t[i + 2]]);
-  }
   if (!box) return m;
-  if (outline) {  // 1 px light rim around the banner, so dark banners read on dark backgrounds
+  if (outline) {  // 1 px light rim around the card, so dark banners/signs read on dark backgrounds
     // GIF alpha is on/off, so "white at opacity x" is pre-blended over Discord's dark background
     // ponytail: looks right on Discord dark only; add a background picker if it's used elsewhere
     const rim = [...OUTLINE_BG.map(c => Math.round(c + (255 - c) * outline)), 255];
@@ -320,15 +345,19 @@ function bannerFrame(tex, a, box) {
       if (near(x - 1, y) || near(x + 1, y) || near(x, y - 1) || near(x, y + 1)) px.set(rim, (y * W + x) * 4);
     }
   }
-  return { px, W, H };
+  return { px };
 }
-function makeBannerGif(banner) {  // transparent background (1-bit alpha), dispose=2 so frames don't smear
-  const tex = bannerTexture(banner), gif = GIFEncoder(), k = bopt.size;
-  const bounds = Array.from({ length: FRAMES }, (_, f) => bannerFrame(tex, f / FRAMES));
+// picAt(f, a) -> card for frame f (a = motion phase); n frames, motion runs round(n/40) cycles so long loops keep the usual speed.
+// Transparent background (1-bit alpha), dispose=2 so frames don't smear.
+function makeCardGif(picAt, n) {
+  const cycles = Math.max(1, Math.round(n / FRAMES)), at = f => f / n * cycles, gif = GIFEncoder();
+  const full = picAt(n - 1, 0), k = full.k, pad = 2 + Math.ceil(k);
+  const bounds = Array.from({ length: n }, (_, f) => cardFrame(full, at(f)));
   const x0 = Math.min(...bounds.map(b => b.x0)), y0 = Math.min(...bounds.map(b => b.y0));
-  const W = Math.ceil((Math.max(...bounds.map(b => b.x1)) - x0) * k) + 5, H = Math.ceil((Math.max(...bounds.map(b => b.y1)) - y0) * k) + 5;
-  for (let f = 0; f < FRAMES; f++) {
-    const { px } = bannerFrame(tex, f / FRAMES, { x0, y0, W, H });
+  const W = Math.ceil((Math.max(...bounds.map(b => b.x1)) - x0) * k) + 2 * pad + 1;
+  const H = Math.ceil((Math.max(...bounds.map(b => b.y1)) - y0) * k) + 2 * pad + 1;
+  for (let f = 0; f < n; f++) {
+    const { px } = cardFrame(picAt(f, at(f)), at(f), { x0, y0, W, H, pad });
     const palette = quantize(px, 256, { format: "rgba4444", oneBitAlpha: true });
     // transparent colour goes to slot 0: the GIF background is index 0, and some players (Discord) paint it
     // on dispose=2 instead of clearing, which flashed whatever light colour sat there
@@ -339,6 +368,67 @@ function makeBannerGif(banner) {  // transparent background (1-bit alpha), dispo
   }
   gif.finish();
   return new Blob([gif.bytes()], { type: "image/gif" });
+}
+
+// --- MC signs: GUI front-view texture blown up 4x (4 font px per wood texel, like in game) with the text drawn on ---
+const STEX = {};
+for (const [t, woods] of Object.entries(window.SIGNS)) {
+  STEX[t] = {};
+  for (const [wood, src] of Object.entries(woods)) STEX[t][wood] = await pixels(src);
+}
+// board = text area in texels, line = line height in font px (hanging signs are tighter)
+const SIGN = { standing: { board: [0, 0, 24, 12], line: 10 }, wall: { board: [0, 0, 24, 12], line: 10 }, hanging: { board: [1, 6, 14, 10], line: 9 } };
+// sign text colours (DyeColor.textColor); plain text is drawn at 40% brightness like in game, glowing text at full with a dark rim
+const SIGN_COLOR = { black: 0x000000, white: 0xFFFFFF, orange: 0xFF681F, magenta: 0xFF00FF, light_blue: 0x9AC0CD,
+  yellow: 0xFFFF00, lime: 0xBFFF00, pink: 0xFF69B4, gray: 0x808080, light_gray: 0xD3D3D3, cyan: 0x00FFFF,
+  purple: 0xA020F0, blue: 0x0000FF, brown: 0x8B4513, green: 0x00FF00, red: 0xFF0000 };
+// rows: tokenized lines; shown: how many tokens the typewriter has revealed; a: phase for the gradient colour
+function signCard(rows, shown, a, c1, c2) {
+  const { type, wood, color, glow } = bopt, S = 4, src = STEX[type === "hanging" ? "hanging" : "standing"][wood];
+  const tw = src.width, th = type === "wall" ? 12 : src.height, w = tw * S, h = th * S, rgba = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const si = (Math.floor(y / S) * tw + Math.floor(x / S)) * 4;
+    rgba.set(src.data.subarray(si, si + 4), (y * w + x) * 4);
+  }
+  const { board, line } = SIGN[type], [bx, by, bw, bh] = board.map(v => v * S);
+  const set = (x, y, c) => { if (x >= bx && x < bx + bw && y >= by && y < by + bh) rgba.set([c[0], c[1], c[2], 255], (y * w + x) * 4); };
+  const flat = SIGN_COLOR[color] ?? 0, base = [flat >> 16, flat >> 8 & 255, flat & 255];
+  let left = shown;
+  const top = by + Math.floor((bh - rows.length * line) / 2) + 1;
+  rows.forEach((chars, r) => {
+    let x0 = bx + Math.floor((bw - rowW(chars)) / 2);
+    const y0 = top + r * line;
+    chars.forEach((c, i) => {
+      if (left-- <= 0) return;
+      if (c.icon) {
+        const { w: iw, h: ih, data } = c.icon, iy = y0 + Math.floor((8 - ih) / 2);
+        for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) {
+          const si = (y * iw + x) * 4, al = data[si + 3] / 255, di = ((iy + y) * w + x0 + x) * 4;
+          if (al) set(x0 + x, iy + y, [0, 1, 2].map(k => Math.round(rgba[di + k] * (1 - al) + data[si + k] * al)));
+        }
+        x0 += iw + 1;
+        return;
+      }
+      const g = glyph(c), full = color === "gradient" ? grad(mod1(i / Math.max(chars.length, 1) - a), c1, c2) : base;
+      const col = glow || color === "gradient" ? full : full.map(v => v * 0.4);
+      if (glow) {  // in game the glow rim is the darkened colour, or cream for black text
+        const rim = flat === 0 && color !== "gradient" ? [240, 235, 204] : full.map(v => v * 0.4);
+        for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]])
+          g.mask.forEach(([gx, gy]) => set(x0 + gx + dx, y0 + gy + dy, rim));
+      }
+      g.mask.forEach(([gx, gy]) => set(x0 + gx, y0 + gy, col));
+      x0 += g.w + 1;
+    });
+  });
+  return { w, h, rgba, k: bopt.size / 2, pivot: 0 };
+}
+function makeSignGif(lines, c1, c2) {
+  iconSize = Math.min(iconSize, SIGN[bopt.type].line);  // icons can't be taller than a sign line (readOpts resets it each render)
+  Object.assign(bopt, { yaw: 0, sway: 0, spin: false });  // signs never turn or sway in game: always straight on
+  const rows = lines.map(tokenize), total = rows.reduce((s, r) => s + r.length, 0);
+  // typewriter: one character per frame, then hold the full sign for 25 frames before looping
+  const n = bopt.typewriter ? Math.max(FRAMES, total + 25) : FRAMES;
+  return makeCardGif((f, a) => signCard(rows, bopt.typewriter ? f : total, a, c1, c2), n);
 }
 
 // --- UI ---
@@ -353,7 +443,7 @@ for (const [cat, list] of Object.entries(window.ICONS)) {
     b.type = "button"; b.title = name;
     b.innerHTML = `<img src="${src}" alt="${name}">`;
     b.onclick = () => {
-      const ta = $("texts");
+      const ta = $(mode === "sign" ? "signtext" : "texts");
       ta.setRangeText(`:${name}:`, ta.selectionStart, ta.selectionEnd, "end");
       ta.focus();
       update();
@@ -371,7 +461,8 @@ function readOpts() {
   shadow = $("shadow").checked;
   bopt = { size: clamp("bsize", 1, 12, 5), yaw: clamp("yaw", -90, 90, 25), spin: $("spin").checked,
     sway: clamp("sway", 0, 45, 8), ripple: clamp("ripple", 0, 4, 1), bar: $("bar").checked,
-    outline: +$("outline").value };
+    outline: +$("outline").value, type: $("stype").value, wood: $("wood").value, color: $("scolor").value,
+    glow: $("glow").checked, typewriter: $("typewriter").checked };
   $("outlineVal").value = bopt.outline;
 }
 // random pair: a bright hue plus its opposite (complement, ±15° jitter so pairs vary)
@@ -395,12 +486,19 @@ $("fit").onclick = () => {  // widest line + 6 px padding each side
   if (lines.length) $("width").value = Math.max(...lines.map(l => rowW(tokenize(l)))) + 12;
   update();
 };
+$("wood").innerHTML = Object.keys(window.SIGNS.standing).map(w => `<option value="${w}"${w === "oak" ? " selected" : ""}>${w.replace("_", " ")}</option>`).join("");
+$("scolor").innerHTML = ["gradient", ...Object.keys(SIGN_COLOR)].map(c => `<option value="${c}">${c === "gradient" ? "Gradient (Colors)" : c.replace("_", " ")}</option>`).join("");
+function showMode() {  // data-only="mode mode ..." lists the tabs an element belongs to
+  for (const el of document.querySelectorAll("[data-only]")) el.hidden = !el.dataset.only.split(" ").includes(mode);
+}
+showMode();
 let timer;
 function update() { clearTimeout(timer); timer = setTimeout(render, 200); }
 document.querySelector("main").addEventListener("input", update);
 for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => {
   mode = document.querySelector("main").dataset.mode = b.dataset.mode;
   for (const o of document.querySelectorAll("#tabs button")) o.setAttribute("aria-pressed", o === b);
+  showMode();
   update();
 };
 function render() {
@@ -409,8 +507,13 @@ function render() {
   let name, lines = [];
   if (mode === "banner") {
     const b = parseBanner($("cmd").value.toLowerCase());
-    made = URL.createObjectURL(makeBannerGif(b));
+    made = URL.createObjectURL(makeCardGif(() => bannerCard(b), FRAMES));
     name = `${b.base}_banner.gif`;
+  } else if (mode === "sign") {
+    lines = $("signtext").value.split("\n").slice(0, 4);  // signs hold 4 lines; blank lines count
+    while (lines.length && !lines.at(-1).trim()) lines.pop();
+    made = URL.createObjectURL(makeSignGif(lines, hex($("c1").value), hex($("c2").value)));
+    name = `${bopt.wood}_${bopt.type}_sign.gif`;
   } else {
     lines = getLines();
     if (!lines.length) return;
