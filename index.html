@@ -18,7 +18,8 @@
   legend { color:var(--text); font-size:13px; padding:0 4px; }
   fieldset input[type=number] { width:70px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:4px; padding:4px; }
   button, a.btn { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font:inherit; cursor:pointer; text-decoration:none; }
-  button.secondary { background:#3a3144; }
+  button.secondary, #tabs button[aria-pressed=false] { background:#3a3144; }
+  #tabs { display:flex; gap:6px; margin-bottom:10px; }
   #icons .cat { margin:8px 0; }
   #icons .cat span { display:block; color:var(--muted); font-size:13px; margin-bottom:4px; }
   #icons .cat div { display:flex; flex-wrap:wrap; gap:4px; }
@@ -33,6 +34,7 @@
 <main>
   <h1>Shadow GIFs</h1>
   <div>
+  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button></nav>
   <textarea id="texts" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
   <fieldset>
     <legend>Size</legend>
@@ -66,6 +68,7 @@ const FONT_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACAAQMAAAD5
 const CHARS = ["\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", " !\"#$%&'()*+,-./", "0123456789:;<=>?", "@ABCDEFGHIJKLMNO", "PQRSTUVWXYZ[\\]^_", "`abcdefghijklmno", "pqrstuvwxyz{|}~\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u00a3\u0000\u0000\u0192", "\u0000\u0000\u0000\u0000\u0000\u0000\u00aa\u00ba\u0000\u0000\u00ac\u0000\u0000\u0000\u00ab\u00bb", "\u2591\u2592\u2593\u2502\u2524\u2561\u2562\u2556\u2555\u2563\u2551\u2557\u255d\u255c\u255b\u2510", "\u2514\u2534\u252c\u251c\u2500\u253c\u255e\u255f\u255a\u2554\u2569\u2566\u2560\u2550\u256c\u2567", "\u2568\u2564\u2565\u2559\u2558\u2552\u2553\u256b\u256a\u2518\u250c\u2588\u2584\u258c\u2590\u2580", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u2205\u2208\u0000", "\u2261\u00b1\u2265\u2264\u2320\u2321\u00f7\u2248\u00b0\u2219\u0000\u221a\u207f\u00b2\u25a0\u0000"];
 const FRAMES = 40;
 let ms = 60, wave = 1, shadow = true;  // set from the Motion inputs
+let mode = "button";  // tab: "button" (centred) or "banner" (text scrolls, 1 MC px per frame)
 const FILL = [93, 84, 104], TOP = [140, 118, 165], BOTTOM = [60, 40, 70], EDGE = [20, 4, 20];
 
 // --- font: glyph alpha masks cut from ascii.png ---
@@ -148,9 +151,11 @@ const mod1 = x => ((x % 1) + 1) % 1;
 const pitch = rows => Math.max(10, rows.some(r => r.some(c => c.icon)) ? iconSize + 2 : 0);
 const height = rows => 20 + (rows.length - 1) * pitch(rows);
 const rowW = chars => chars.reduce((s, c) => s + tokW(c) + 1, 0) - 1;
+const period = rows => Math.max(...rows.map(rowW)) + 24;  // banner: text repeats every widest line + gap
 
-function renderFrame(rows, w, t, c1, c2) {
-  const H = height(rows), px = new Uint8ClampedArray(w * H * 4);
+// t in [0,1) is one loop; a = t * cycles drives border/gradient/wave so long banner loops keep button speed
+function renderFrame(rows, w, t, c1, c2, cycles = 1) {
+  const a = t * cycles, H = height(rows), px = new Uint8ClampedArray(w * H * 4);
   const set = (x, y, c) => { const i = (y * w + x) * 4; px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255; };
   for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) set(x, y, FILL);
   for (let x = 1; x < w - 1; x++) { set(x, 1, TOP); set(x, H - 2, BOTTOM); set(x, H - 3, BOTTOM); }
@@ -159,29 +164,32 @@ function renderFrame(rows, w, t, c1, c2) {
   for (let y = 1; y < H; y++) perim.push([w - 1, y]);
   for (let x = w - 2; x >= 0; x--) perim.push([x, H - 1]);
   for (let y = H - 2; y > 0; y--) perim.push([0, y]);
-  perim.forEach(([x, y], i) => set(x, y, mix(grad(mod1(i / perim.length * 2 - t), c1, c2), EDGE, 0.15)));
+  perim.forEach(([x, y], i) => set(x, y, mix(grad(mod1(i / perim.length * 2 - a), c1, c2), EDGE, 0.15)));
+  const P = period(rows);
   rows.forEach((chars, row) => {
-  let x0 = Math.floor((w - rowW(chars)) / 2);
   const y0 = Math.floor((H - 8 - (rows.length - 1) * pitch(rows)) / 2) + row * pitch(rows);
-  chars.forEach((c, i) => {
-    const dy = Math.round(wave * Math.sin(2 * Math.PI * (t * 2 - i / 8)));
+  const starts = [];
+  if (mode === "banner") for (let x = Math.floor((P - rowW(chars)) / 2) - Math.round(t * P); x < w; x += P) starts.push(x);
+  else starts.push(Math.floor((w - rowW(chars)) / 2));
+  for (let x0 of starts) chars.forEach((c, i) => {
+    const dy = Math.round(wave * Math.sin(2 * Math.PI * (a * 2 - i / 8)));
     if (c.icon) {  // centred on the text line; 16px + bob stays inside the border rows
       const { w: iw, h: ih, data } = c.icon, iy = y0 + Math.floor((8 - ih) / 2) + dy;
       for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) {
-        const si = (y * iw + x) * 4, a = data[si + 3] / 255;
+        const si = (y * iw + x) * 4, al = data[si + 3] / 255;
         const X = x0 + x, Y = iy + y, di = (Y * w + X) * 4;
-        if (a && X >= 0 && X < w && Y >= 0 && Y < H)
-          set(X, Y, [0, 1, 2].map(k => Math.round(px[di + k] * (1 - a) + data[si + k] * a)));
+        if (al && X >= 1 && X < w - 1 && Y >= 0 && Y < H)
+          set(X, Y, [0, 1, 2].map(k => Math.round(px[di + k] * (1 - al) + data[si + k] * al)));
       }
       x0 += iw + 1;
       return;
     }
     const g = glyph(c);
-    const col = grad(mod1(i / Math.max(chars.length, 1) - t), c1, c2);
+    const col = grad(mod1(i / Math.max(chars.length, 1) - a), c1, c2);
     const shade = col.map(v => Math.floor(v / 4));
     const draw = (ox, oy, color) => g.mask.forEach(([gx, gy]) => {
       const x = x0 + ox + gx, y = y0 + oy + gy;
-      if (x >= 0 && x < w && y >= 0 && y < H) set(x, y, color);
+      if (x >= 1 && x < w - 1 && y >= 0 && y < H) set(x, y, color);
     });
     if (shadow) draw(1, dy + 1, shade);
     draw(0, dy, col);
@@ -202,10 +210,11 @@ function upscale(px, w, H, s) {
 
 function makeGif(lines, scale, width, c1, c2) {
   const rows = lines.map(tokenize), H = height(rows);
-  const w = width || Math.max(Math.max(...rows.map(rowW)) + 41, 200);
+  const w = width || (mode === "banner" ? 200 : Math.max(Math.max(...rows.map(rowW)) + 41, 200));
+  const n = mode === "banner" ? period(rows) : FRAMES, cycles = Math.max(1, Math.round(n / FRAMES));
   const gif = GIFEncoder();
-  for (let f = 0; f < FRAMES; f++) {
-    const data = upscale(renderFrame(rows, w, f / FRAMES, c1, c2), w, H, scale);
+  for (let f = 0; f < n; f++) {
+    const data = upscale(renderFrame(rows, w, f / n, c1, c2, cycles), w, H, scale);
     const palette = quantize(data, 256);
     gif.writeFrame(applyPalette(data, palette), w * scale, H * scale, { palette, delay: ms });
   }
@@ -266,6 +275,11 @@ $("fit").onclick = () => {  // widest line + 6 px padding each side
 let timer;
 function update() { clearTimeout(timer); timer = setTimeout(render, 200); }
 document.querySelector("main").addEventListener("input", update);
+for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => {
+  mode = b.dataset.mode;
+  for (const o of document.querySelectorAll("#tabs button")) o.setAttribute("aria-pressed", o === b);
+  update();
+};
 function render() {
   const lines = getLines();
   if (!lines.length) return;
@@ -274,7 +288,7 @@ function render() {
   const c1 = hex($("c1").value), c2 = hex($("c2").value);
   const old = made;
   made = URL.createObjectURL(makeGif(lines, scale, width, c1, c2));
-  const name = ([...lines.join(" ").replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "button") + ".gif";
+  const name = ([...lines.join(" ").replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "button") + (mode === "banner" ? "-banner" : "") + ".gif";
   const item = document.createElement("div");
   item.className = "item";
   const img = document.createElement("img");
