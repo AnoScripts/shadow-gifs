@@ -8,21 +8,21 @@
   :root { --bg:#1b1720; --panel:#26202d; --text:#eee; --muted:#a99bb8; --accent:#b06cff; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:15px/1.4 system-ui, sans-serif; }
-  main { max-width:1280px; margin:0 auto; padding:24px 16px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 24px; align-items:start; }
-  h1 { grid-column:1 / -1; }
-  #icons { position:sticky; top:12px; max-height:calc(100vh - 24px); overflow-y:auto; background:var(--panel); border-radius:6px; padding:4px 10px 10px; }
+  main { max-width:1280px; margin:0 auto; padding:0 16px 24px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 24px; align-items:start; }
+  header { position:sticky; top:0; z-index:1; display:flex; flex-wrap:wrap; align-items:center; gap:8px 20px; background:var(--bg); padding:12px max(16px, calc((100% - 1248px) / 2)); margin-bottom:16px; border-bottom:1px solid #3a3144; }
+  #icons { position:sticky; top:76px; max-height:calc(100vh - 88px); overflow-y:auto; background:var(--panel); border-radius:6px; padding:4px 10px 10px; }
   main[data-mode=banner] [data-only=text], main:not([data-mode=banner]) [data-only=banner] { display:none; }
   main[data-mode=banner] { grid-template-columns:minmax(0,760px); justify-content:center; }
   #cmd { min-height:90px; font:12px/1.4 ui-monospace, monospace; }
   @media (max-width:800px) { main { grid-template-columns:minmax(0,1fr); } #icons { position:static; max-height:none; } }
-  h1 { font-size:20px; margin:0 0 16px; }
+  h1 { font-size:20px; margin:0; }
   textarea { width:100%; min-height:110px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:6px; padding:10px; font:inherit; }
   fieldset { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; margin:12px 0; border:1px solid #3a3144; border-radius:6px; padding:8px 12px 12px; color:var(--muted); }
   legend { color:var(--text); font-size:13px; padding:0 4px; }
   fieldset input[type=number] { width:70px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:4px; padding:4px; }
   button, a.btn { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font:inherit; cursor:pointer; text-decoration:none; }
   button.secondary, #tabs button[aria-pressed=false] { background:#3a3144; }
-  #tabs { display:flex; gap:6px; margin-bottom:10px; }
+  #tabs { display:flex; gap:6px; }
   #icons .cat { margin:8px 0; }
   #icons .cat span { display:block; color:var(--muted); font-size:13px; margin-bottom:4px; }
   #icons .cat div { display:flex; flex-wrap:wrap; gap:4px; }
@@ -34,10 +34,10 @@
 </style>
 </head>
 <body>
+  <header><h1>Shadow GIFs</h1>
+  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="moving" aria-pressed="false">Moving</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button></nav></header>
 <main data-mode="button">
-  <h1>Shadow GIFs</h1>
   <div>
-  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="moving" aria-pressed="false">Moving</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button></nav>
   <textarea id="cmd" data-only="banner" placeholder="Paste a /give command for a banner">give @p minecraft:black_banner[banner_patterns=[{"pattern":"minecraft:stripe_right","color":"black"},{"pattern":"minecraft:stripe_downleft","color":"red"},{"pattern":"minecraft:gradient","color":"black"},{"pattern":"minecraft:bricks","color":"black"},{"pattern":"minecraft:straight_cross","color":"magenta"},{"pattern":"minecraft:skull","color":"purple"},{"pattern":"minecraft:stripe_downright","color":"red"},{"pattern":"minecraft:stripe_bottom","color":"black"},{"pattern":"minecraft:stripe_center","color":"black"},{"pattern":"minecraft:creeper","color":"black"},{"pattern":"minecraft:triangle_top","color":"black"},{"pattern":"minecraft:square_bottom_left","color":"black"},{"pattern":"minecraft:square_top_left","color":"black"}]]</textarea>
   <fieldset data-only="banner">
     <legend>Banner</legend>
