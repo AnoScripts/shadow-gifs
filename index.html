@@ -11,8 +11,9 @@
   main { max-width:760px; margin:0 auto; padding:24px 16px; }
   h1 { font-size:20px; margin:0 0 16px; }
   textarea { width:100%; min-height:110px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:6px; padding:10px; font:inherit; }
-  .row { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin:12px 0; color:var(--muted); }
-  .row input[type=number] { width:70px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:4px; padding:4px; }
+  fieldset { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; margin:12px 0; border:1px solid #3a3144; border-radius:6px; padding:8px 12px 12px; color:var(--muted); }
+  legend { color:var(--text); font-size:13px; padding:0 4px; }
+  fieldset input[type=number] { width:70px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:4px; padding:4px; }
   button, a.btn { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font:inherit; cursor:pointer; text-decoration:none; }
   button.secondary { background:#3a3144; }
   #icons { margin-top:6px; }
@@ -30,18 +31,28 @@
 <main>
   <h1>Shadow GIFs</h1>
   <textarea id="texts" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
-  <div id="icons"></div>
-  <div class="row">
+  <div id="out"></div>
+  <fieldset>
+    <legend>Size</legend>
     <label>Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
-    <label>Icon size <input id="isize" type="number" min="4" max="18" value="12"></label>
     <label>Width (MC px, 0 = auto) <input id="width" type="number" min="0" value="0"></label>
+    <button id="fit" type="button" class="secondary">Fit to text</button>
+    <label>Icon size <input id="isize" type="number" min="4" max="18" value="12"></label>
+  </fieldset>
+  <fieldset>
+    <legend>Colors</legend>
     <label>Color 1 <input id="c1" type="color" value="#865cff"></label>
     <label>Color 2 <input id="c2" type="color" value="#ff5cd6"></label>
-  </div>
-  <div class="row">
-    <button id="make">Generate GIF</button>
-  </div>
-  <div id="out"></div>
+    <button id="random" type="button" class="secondary">Random</button>
+    <button id="swap" type="button" class="secondary">Swap</button>
+  </fieldset>
+  <fieldset>
+    <legend>Motion</legend>
+    <label>Speed (ms/frame) <input id="ms" type="number" min="20" max="200" step="10" value="60"></label>
+    <label>Wave (px) <input id="wave" type="number" min="0" max="2" value="1"></label>
+    <label><input id="shadow" type="checkbox" checked> Text shadow</label>
+  </fieldset>
+  <div id="icons"></div>
 </main>
 <script src="icons.js"></script>
 <script type="module">
@@ -49,7 +60,8 @@ import { GIFEncoder, quantize, applyPalette } from "https://cdn.jsdelivr.net/npm
 
 const FONT_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACAAQMAAAD58POIAAAABlBMVEX///////9VfPVsAAAAAXRSTlMAQObYZgAAAtJJREFUeNrtk6GPG1cQxj90eqBSnoIWVPKoCgg02qtK7oECwyXlBgcMH+vCAQWjolWRoVUVWEUGBQUBgYaBkUL2L4gWXQZEt5l5jq3bVZILDMjn2efVb3+aefukxffMwruGhJh4B0sooO0aTikRgGgAypHAtLuAJtPGABQKKkZIBwduJFiaYdUhpTNg2JQNiP2WeboDWDLlXOlSc/YRnCFrkeecRAQgJMGWQlgNHESYk1LAnpZLCUPMLcCIEUdKQYOQBJ9JBCER80kiQJqArJpDtllr5gim2TY8eciDait9EBbJaMXCzJJCx6+Pgj90YOn7rabQ834v+E/MNKEYshX8cwGlh+CFWAqQE2DxKZylz6JlCmax562KR3vuCfAOZEvTBE7UmGE9HBBFAwKwSCgGERPhDJq9UOJYQCdi4LUQfwQbyeRdSPvQA/MoGIyAJZgDs6PkoKw4AeRD3thuDxw6fjVkIBxlK0mOHHa8FwFaYVF/9/DyBMTCyfGOpRhDbttyXJ15+XIKQMYlCSXEfDsBidMWOGwObS8eNQDguD1y8vOQyEzwqZwN7EnoZAwth2QH1LTpBDjwQC21EpSYC7js5NvNEogTsAKeT0ACCJ7Jwc6NLwMFdgDmUsl6jWlih5Jn3Xngx5vVCqfkdWmJ7hlwSXhoDIOD0uPx/PTbm6qqaqCurSpA/v19CoqhNfSuvr+r1Y23xaiu6qurs6F6d2/G3f296rlHbVUDqNyYAO8xBZUVnKD8PgsW9fXNu/F6fDdejOUSsAIW4+h1fWOPi4HiVKWBL4+DUpVdhkcMT8ZPAKvFwv4mRvXAGMfxZrG4GUe17QxPfEjtl7/EV4Jpfvl5Bn5NM/Anz8BfOgN/82M9/i9T5qEUf4jAGvjRF7wnoqeRbjsg9p0C0JieRmwddKQnI0bFujKQ9NQjRtyiQtcNbqC4WwAN4Iaqxg6eJc6JDz6OD74blGMNvZoZAAAAAElFTkSuQmCC";
 const CHARS = ["\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", " !\"#$%&'()*+,-./", "0123456789:;<=>?", "@ABCDEFGHIJKLMNO", "PQRSTUVWXYZ[\\]^_", "`abcdefghijklmno", "pqrstuvwxyz{|}~\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u00a3\u0000\u0000\u0192", "\u0000\u0000\u0000\u0000\u0000\u0000\u00aa\u00ba\u0000\u0000\u00ac\u0000\u0000\u0000\u00ab\u00bb", "\u2591\u2592\u2593\u2502\u2524\u2561\u2562\u2556\u2555\u2563\u2551\u2557\u255d\u255c\u255b\u2510", "\u2514\u2534\u252c\u251c\u2500\u253c\u255e\u255f\u255a\u2554\u2569\u2566\u2560\u2550\u256c\u2567", "\u2568\u2564\u2565\u2559\u2558\u2552\u2553\u256b\u256a\u2518\u250c\u2588\u2584\u258c\u2590\u2580", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u2205\u2208\u0000", "\u2261\u00b1\u2265\u2264\u2320\u2321\u00f7\u2248\u00b0\u2219\u0000\u221a\u207f\u00b2\u25a0\u0000"];
-const FRAMES = 40, MS = 60;
+const FRAMES = 40;
+let ms = 60, wave = 1, shadow = true;  // set from the Motion inputs
 const FILL = [93, 84, 104], TOP = [140, 118, 165], BOTTOM = [60, 40, 70], EDGE = [20, 4, 20];
 
 // --- font: glyph alpha masks cut from ascii.png ---
@@ -148,7 +160,7 @@ function renderFrame(rows, w, t, c1, c2) {
   let x0 = Math.floor((w - rowW(chars)) / 2);
   const y0 = Math.floor((H - 8 - (rows.length - 1) * pitch(rows)) / 2) + row * pitch(rows);
   chars.forEach((c, i) => {
-    const dy = Math.round(Math.sin(2 * Math.PI * (t * 2 - i / 8)));
+    const dy = Math.round(wave * Math.sin(2 * Math.PI * (t * 2 - i / 8)));
     if (c.icon) {  // centred on the text line; 16px + bob stays inside the border rows
       const { w: iw, h: ih, data } = c.icon, iy = y0 + Math.floor((8 - ih) / 2) + dy;
       for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) {
@@ -162,12 +174,12 @@ function renderFrame(rows, w, t, c1, c2) {
     }
     const g = glyph(c);
     const col = grad(mod1(i / Math.max(chars.length, 1) - t), c1, c2);
-    const shadow = col.map(v => Math.floor(v / 4));
+    const shade = col.map(v => Math.floor(v / 4));
     const draw = (ox, oy, color) => g.mask.forEach(([gx, gy]) => {
       const x = x0 + ox + gx, y = y0 + oy + gy;
       if (x >= 0 && x < w && y >= 0 && y < H) set(x, y, color);
     });
-    draw(1, dy + 1, shadow);
+    if (shadow) draw(1, dy + 1, shade);
     draw(0, dy, col);
     x0 += g.w + 1;
   });
@@ -191,7 +203,7 @@ function makeGif(lines, scale, width, c1, c2) {
   for (let f = 0; f < FRAMES; f++) {
     const data = upscale(renderFrame(rows, w, f / FRAMES, c1, c2), w, H, scale);
     const palette = quantize(data, 256);
-    gif.writeFrame(applyPalette(data, palette), w * scale, H * scale, { palette, delay: MS });
+    gif.writeFrame(applyPalette(data, palette), w * scale, H * scale, { palette, delay: ms });
   }
   gif.finish();
   return new Blob([gif.bytes()], { type: "image/gif" });
@@ -212,17 +224,50 @@ for (const [cat, list] of Object.entries(window.ICONS)) {
       const ta = $("texts");
       ta.setRangeText(`:${name}:`, ta.selectionStart, ta.selectionEnd, "end");
       ta.focus();
+      update();
     };
     row.lastChild.append(b);
   }
   $("icons").append(row);
 }
-$("make").onclick = () => {
-  const lines = $("texts").value.split("\n").map(s => s.trim()).filter(Boolean);
+const getLines = () => $("texts").value.split("\n").map(s => s.trim()).filter(Boolean);
+const clamp = (id, lo, hi, def) => Math.min(hi, Math.max(lo, $(id).value === "" ? def : +$(id).value));
+function readOpts() {
+  iconSize = clamp("isize", 4, 18, 12);
+  ms = clamp("ms", 20, 200, 60);
+  wave = clamp("wave", 0, 2, 1);
+  shadow = $("shadow").checked;
+}
+// random pair: a bright hue plus a neighbour 40-90° away, so the gradient stays smooth and readable
+const hslHex = (h, s, l) => "#" + [0, 8, 4].map(n => {
+  const k = (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, "0");
+}).join("");
+$("random").onclick = () => {
+  const h = Math.random() * 360, d = (40 + Math.random() * 50) * (Math.random() < 0.5 ? -1 : 1);
+  $("c1").value = hslHex(h, 0.9, 0.62);
+  $("c2").value = hslHex((h + d + 360) % 360, 0.9, 0.68);
+  update();
+};
+$("swap").onclick = () => {
+  [$("c1").value, $("c2").value] = [$("c2").value, $("c1").value];
+  update();
+};
+$("fit").onclick = () => {  // widest line + 6 px padding each side
+  readOpts();
+  const lines = getLines();
+  if (lines.length) $("width").value = Math.max(...lines.map(l => rowW(tokenize(l)))) + 12;
+  update();
+};
+let timer;
+function update() { clearTimeout(timer); timer = setTimeout(render, 200); }
+document.querySelector("main").addEventListener("input", update);
+function render() {
+  const lines = getLines();
   if (!lines.length) return;
-  const scale = Math.max(1, +$("scale").value || 2), width = +$("width").value || 0;
+  readOpts();
+  const scale = clamp("scale", 1, 8, 2), width = +$("width").value || 0;
   const c1 = hex($("c1").value), c2 = hex($("c2").value);
-  iconSize = Math.min(18, Math.max(4, +$("isize").value || 12));
   if (made) URL.revokeObjectURL(made);
   made = URL.createObjectURL(makeGif(lines, scale, width, c1, c2));
   const name = ([...lines.join(" ").replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "button") + ".gif";
@@ -235,7 +280,7 @@ $("make").onclick = () => {
   item.append(img, a);
   $("out").replaceChildren(item);
 };
-$("make").click();
+render();
 </script>
 </body>
 </html>
