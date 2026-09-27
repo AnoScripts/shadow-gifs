@@ -47,6 +47,7 @@
     <label>Sway (°) <input id="sway" type="number" min="0" max="45" value="8"></label>
     <label>Ripple (px) <input id="ripple" type="number" min="0" max="4" step="0.5" value="1"></label>
     <label><input id="bar" type="checkbox" checked> Wooden bar on top</label>
+    <label>White outline (px, 0 = off) <input id="outline" type="number" min="0" max="4" value="1"></label>
   </fieldset>
   <textarea id="texts" data-only="text" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
   <fieldset data-only="text">
@@ -272,7 +273,7 @@ function bannerTexture({ base, layers }) {  // 20x40 RGB: each greyscale layer x
 let bopt = {};  // set from the Banner inputs
 // one frame: forward-splat texel samples (2 per output px) through ripple, sway (pitch about the top), yaw and perspective, z-buffered
 function bannerFrame(tex, a) {
-  const { size: k, yaw, spin, sway, ripple, bar } = bopt, D = 80;
+  const { size: k, yaw, spin, sway, ripple, bar, outline } = bopt, D = 80;
   const W = Math.round(30 * k), H = Math.round(47 * k), top = 3 * k;
   const px = new Uint8ClampedArray(W * H * 4), zb = new Float32Array(W * H).fill(Infinity);
   const th = sway * Math.PI / 180 * Math.sin(2 * Math.PI * a), ct = Math.cos(th), st = Math.sin(th);
@@ -287,7 +288,7 @@ function bannerFrame(tex, a) {
     zb[i] = Z;
     px[i * 4] = col[0] * l; px[i * 4 + 1] = col[1] * l; px[i * 4 + 2] = col[2] * l; px[i * 4 + 3] = 255;
   };
-  const step = 0.5 / k, w = 2 * Math.PI / 25, ph2 = 2 * Math.PI * a;
+  const step = 0.35 / k, w = 2 * Math.PI / 25, ph2 = 2 * Math.PI * a;
   for (let v = 0; v < 40; v += step) {  // ripple: wave running down the cloth, growing towards the free bottom edge
     const amp = ripple * v / 40, z = amp * Math.sin(w * v - ph2);
     const dzdv = ripple / 40 * Math.sin(w * v - ph2) + amp * w * Math.cos(w * v - ph2);
@@ -300,6 +301,18 @@ function bannerFrame(tex, a) {
     const t = BTEX.bar, i = (Math.floor(v + 2) * 20 + Math.floor(u)) * 4;
     splat(u, v, -0.5, 0, false, [t[i], t[i + 1], t[i + 2]]);
   }
+  if (outline) {  // light rim on empty pixels within `outline` px of the banner, so dark banners read on dark backgrounds
+    const solid = Uint8Array.from({ length: W * H }, (_, i) => px[i * 4 + 3]);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (solid[y * W + x]) continue;
+      let hit = false;
+      for (let dy = -outline; dy <= outline && !hit; dy++) for (let dx = -outline; dx <= outline && !hit; dx++) {
+        const X = x + dx, Y = y + dy;
+        hit = dx * dx + dy * dy <= outline * outline && X >= 0 && X < W && Y >= 0 && Y < H && solid[Y * W + X] > 0;
+      }
+      if (hit) px.set([235, 235, 245, 255], (y * W + x) * 4);
+    }
+  }
   return { px, W, H };
 }
 function makeBannerGif(banner) {  // transparent background (1-bit alpha), dispose=2 so frames don't smear
@@ -307,9 +320,12 @@ function makeBannerGif(banner) {  // transparent background (1-bit alpha), dispo
   for (let f = 0; f < FRAMES; f++) {
     const { px, W, H } = bannerFrame(tex, f / FRAMES);
     const palette = quantize(px, 256, { format: "rgba4444", oneBitAlpha: true });
+    // transparent colour goes to slot 0: the GIF background is index 0, and some players (Discord) paint it
+    // on dispose=2 instead of clearing, which flashed whatever light colour sat there
     const ti = palette.findIndex(c => c[3] === 0);
+    if (ti > 0) [palette[0], palette[ti]] = [palette[ti], palette[0]];
     gif.writeFrame(applyPalette(px, palette, "rgba4444"), W, H,
-      { palette, delay: ms, transparent: ti >= 0, transparentIndex: Math.max(ti, 0), dispose: 2 });
+      { palette, delay: ms, transparent: ti >= 0, transparentIndex: 0, dispose: 2 });
   }
   gif.finish();
   return new Blob([gif.bytes()], { type: "image/gif" });
@@ -344,7 +360,8 @@ function readOpts() {
   wave = clamp("wave", 0, 2, 1);
   shadow = $("shadow").checked;
   bopt = { size: clamp("bsize", 1, 12, 5), yaw: clamp("yaw", -90, 90, 25), spin: $("spin").checked,
-    sway: clamp("sway", 0, 45, 8), ripple: clamp("ripple", 0, 4, 1), bar: $("bar").checked };
+    sway: clamp("sway", 0, 45, 8), ripple: clamp("ripple", 0, 4, 1), bar: $("bar").checked,
+    outline: clamp("outline", 0, 4, 1) };
 }
 // random pair: a bright hue plus its opposite (complement, ±15° jitter so pairs vary)
 const hslHex = (h, s, l) => "#" + [0, 8, 4].map(n => {
