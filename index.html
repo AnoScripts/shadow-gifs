@@ -74,7 +74,7 @@
     <button id="fit" type="button" class="secondary" data-only="button moving">Fit to text</button>
     <label>Icon size <input id="isize" type="number" min="4" max="18" value="12"></label>
   </fieldset>
-  <fieldset data-only="button moving sign">
+  <fieldset id="colors" data-only="button moving sign">
     <legend>Colors</legend>
     <label>Color 1 <input id="c1" type="color" value="#865cff"></label>
     <label>Color 2 <input id="c2" type="color" value="#ff5cd6"></label>
@@ -487,11 +487,13 @@ $("fit").onclick = () => {  // widest line + 6 px padding each side
   update();
 };
 $("wood").innerHTML = Object.keys(window.SIGNS.standing).map(w => `<option value="${w}"${w === "oak" ? " selected" : ""}>${w.replace("_", " ")}</option>`).join("");
-$("scolor").innerHTML = ["gradient", ...Object.keys(SIGN_COLOR)].map(c => `<option value="${c}">${c === "gradient" ? "Gradient (Colors)" : c.replace("_", " ")}</option>`).join("");
+$("scolor").innerHTML = ["gradient", ...Object.keys(SIGN_COLOR)].map(c => `<option value="${c}"${c === "black" ? " selected" : ""}>${c === "gradient" ? "Gradient (Colors)" : c.replace("_", " ")}</option>`).join("");
 function showMode() {  // data-only="mode mode ..." lists the tabs an element belongs to
   for (const el of document.querySelectorAll("[data-only]")) el.hidden = !el.dataset.only.split(" ").includes(mode);
+  if (mode === "sign" && $("scolor").value !== "gradient") $("colors").hidden = true;  // sign only uses them for the gradient
 }
 showMode();
+$("scolor").addEventListener("change", showMode);
 let timer;
 function update() { clearTimeout(timer); timer = setTimeout(render, 200); }
 document.querySelector("main").addEventListener("input", update);
