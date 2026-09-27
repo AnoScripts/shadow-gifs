@@ -11,6 +11,9 @@
   main { max-width:1280px; margin:0 auto; padding:24px 16px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 24px; align-items:start; }
   h1 { grid-column:1 / -1; }
   #icons { position:sticky; top:12px; max-height:calc(100vh - 24px); overflow-y:auto; background:var(--panel); border-radius:6px; padding:4px 10px 10px; }
+  main[data-mode=banner] [data-only=text], main:not([data-mode=banner]) [data-only=banner] { display:none; }
+  main[data-mode=banner] { grid-template-columns:minmax(0,760px); justify-content:center; }
+  #cmd { min-height:90px; font:12px/1.4 ui-monospace, monospace; }
   @media (max-width:800px) { main { grid-template-columns:minmax(0,1fr); } #icons { position:static; max-height:none; } }
   h1 { font-size:20px; margin:0 0 16px; }
   textarea { width:100%; min-height:110px; background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:6px; padding:10px; font:inherit; }
@@ -31,19 +34,29 @@
 </style>
 </head>
 <body>
-<main>
+<main data-mode="button">
   <h1>Shadow GIFs</h1>
   <div>
-  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button></nav>
-  <textarea id="texts" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
-  <fieldset>
+  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="moving" aria-pressed="false">Moving</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button></nav>
+  <textarea id="cmd" data-only="banner" placeholder="Paste a /give command for a banner">give @p minecraft:black_banner[banner_patterns=[{"pattern":"minecraft:stripe_right","color":"black"},{"pattern":"minecraft:stripe_downleft","color":"red"},{"pattern":"minecraft:gradient","color":"black"},{"pattern":"minecraft:bricks","color":"black"},{"pattern":"minecraft:straight_cross","color":"magenta"},{"pattern":"minecraft:skull","color":"purple"},{"pattern":"minecraft:stripe_downright","color":"red"},{"pattern":"minecraft:stripe_bottom","color":"black"},{"pattern":"minecraft:stripe_center","color":"black"},{"pattern":"minecraft:creeper","color":"black"},{"pattern":"minecraft:triangle_top","color":"black"},{"pattern":"minecraft:square_bottom_left","color":"black"},{"pattern":"minecraft:square_top_left","color":"black"}]]</textarea>
+  <fieldset data-only="banner">
+    <legend>Banner</legend>
+    <label>Size (px per pixel) <input id="bsize" type="number" min="1" max="12" value="5"></label>
+    <label>View angle (°) <input id="yaw" type="number" min="-90" max="90" step="5" value="25"></label>
+    <label><input id="spin" type="checkbox"> Spin</label>
+    <label>Sway (°) <input id="sway" type="number" min="0" max="45" value="8"></label>
+    <label>Ripple (px) <input id="ripple" type="number" min="0" max="4" step="0.5" value="1"></label>
+    <label><input id="bar" type="checkbox" checked> Bar</label>
+  </fieldset>
+  <textarea id="texts" data-only="text" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
+  <fieldset data-only="text">
     <legend>Size</legend>
     <label>Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
     <label>Width (MC px, 0 = auto) <input id="width" type="number" min="0" value="0"></label>
     <button id="fit" type="button" class="secondary">Fit to text</button>
     <label>Icon size <input id="isize" type="number" min="4" max="18" value="12"></label>
   </fieldset>
-  <fieldset>
+  <fieldset data-only="text">
     <legend>Colors</legend>
     <label>Color 1 <input id="c1" type="color" value="#865cff"></label>
     <label>Color 2 <input id="c2" type="color" value="#ff5cd6"></label>
@@ -53,14 +66,14 @@
   <fieldset>
     <legend>Motion</legend>
     <label>Speed (ms/frame) <input id="ms" type="number" min="20" max="200" step="10" value="60"></label>
-    <label>Wave (px) <input id="wave" type="number" min="0" max="2" value="1"></label>
-    <label><input id="shadow" type="checkbox" checked> Text shadow</label>
+    <label data-only="text">Wave (px) <input id="wave" type="number" min="0" max="2" value="1"></label>
+    <label data-only="text"><input id="shadow" type="checkbox" checked> Text shadow</label>
   </fieldset>
   <div id="out"></div>
   </div>
-  <div id="icons"></div>
+  <div id="icons" data-only="text"></div>
 </main>
-<script src="icons.js"></script>
+<script src="icons.js?v=2"></script>
 <script type="module">
 import { GIFEncoder, quantize, applyPalette } from "https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.esm.js";
 
@@ -68,7 +81,7 @@ const FONT_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACAAQMAAAD5
 const CHARS = ["\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", " !\"#$%&'()*+,-./", "0123456789:;<=>?", "@ABCDEFGHIJKLMNO", "PQRSTUVWXYZ[\\]^_", "`abcdefghijklmno", "pqrstuvwxyz{|}~\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u00a3\u0000\u0000\u0192", "\u0000\u0000\u0000\u0000\u0000\u0000\u00aa\u00ba\u0000\u0000\u00ac\u0000\u0000\u0000\u00ab\u00bb", "\u2591\u2592\u2593\u2502\u2524\u2561\u2562\u2556\u2555\u2563\u2551\u2557\u255d\u255c\u255b\u2510", "\u2514\u2534\u252c\u251c\u2500\u253c\u255e\u255f\u255a\u2554\u2569\u2566\u2560\u2550\u256c\u2567", "\u2568\u2564\u2565\u2559\u2558\u2552\u2553\u256b\u256a\u2518\u250c\u2588\u2584\u258c\u2590\u2580", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u2205\u2208\u0000", "\u2261\u00b1\u2265\u2264\u2320\u2321\u00f7\u2248\u00b0\u2219\u0000\u221a\u207f\u00b2\u25a0\u0000"];
 const FRAMES = 40;
 let ms = 60, wave = 1, shadow = true;  // set from the Motion inputs
-let mode = "button";  // tab: "button" (centred) or "banner" (text scrolls, 1 MC px per frame)
+let mode = "button";  // tab: "button" (centred), "moving" (text scrolls, 1 MC px per frame) or "banner" (MC banner, see below)
 const FILL = [93, 84, 104], TOP = [140, 118, 165], BOTTOM = [60, 40, 70], EDGE = [20, 4, 20];
 
 // --- font: glyph alpha masks cut from ascii.png ---
@@ -151,9 +164,9 @@ const mod1 = x => ((x % 1) + 1) % 1;
 const pitch = rows => Math.max(10, rows.some(r => r.some(c => c.icon)) ? iconSize + 2 : 0);
 const height = rows => 20 + (rows.length - 1) * pitch(rows);
 const rowW = chars => chars.reduce((s, c) => s + tokW(c) + 1, 0) - 1;
-const period = rows => Math.max(...rows.map(rowW)) + 24;  // banner: text repeats every widest line + gap
+const period = rows => Math.max(...rows.map(rowW)) + 24;  // moving: text repeats every widest line + gap
 
-// t in [0,1) is one loop; a = t * cycles drives border/gradient/wave so long banner loops keep button speed
+// t in [0,1) is one loop; a = t * cycles drives border/gradient/wave so long moving loops keep button speed
 function renderFrame(rows, w, t, c1, c2, cycles = 1) {
   const a = t * cycles, H = height(rows), px = new Uint8ClampedArray(w * H * 4);
   const set = (x, y, c) => { const i = (y * w + x) * 4; px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255; };
@@ -169,7 +182,7 @@ function renderFrame(rows, w, t, c1, c2, cycles = 1) {
   rows.forEach((chars, row) => {
   const y0 = Math.floor((H - 8 - (rows.length - 1) * pitch(rows)) / 2) + row * pitch(rows);
   const starts = [];
-  if (mode === "banner") for (let x = Math.floor((P - rowW(chars)) / 2) - Math.round(t * P); x < w; x += P) starts.push(x);
+  if (mode === "moving") for (let x = Math.floor((P - rowW(chars)) / 2) - Math.round(t * P); x < w; x += P) starts.push(x);
   else starts.push(Math.floor((w - rowW(chars)) / 2));
   for (let x0 of starts) chars.forEach((c, i) => {
     const dy = Math.round(wave * Math.sin(2 * Math.PI * (a * 2 - i / 8)));
@@ -210,13 +223,93 @@ function upscale(px, w, H, s) {
 
 function makeGif(lines, scale, width, c1, c2) {
   const rows = lines.map(tokenize), H = height(rows);
-  const w = width || (mode === "banner" ? 200 : Math.max(Math.max(...rows.map(rowW)) + 41, 200));
-  const n = mode === "banner" ? period(rows) : FRAMES, cycles = Math.max(1, Math.round(n / FRAMES));
+  const w = width || (mode === "moving" ? 200 : Math.max(Math.max(...rows.map(rowW)) + 41, 200));
+  const n = mode === "moving" ? period(rows) : FRAMES, cycles = Math.max(1, Math.round(n / FRAMES));
   const gif = GIFEncoder();
   for (let f = 0; f < n; f++) {
     const data = upscale(renderFrame(rows, w, f / n, c1, c2, cycles), w, H, scale);
     const palette = quantize(data, 256);
     gif.writeFrame(applyPalette(data, palette), w * scale, H * scale, { palette, delay: ms });
+  }
+  gif.finish();
+  return new Blob([gif.bytes()], { type: "image/gif" });
+}
+
+// --- MC banner: parse a /give command, composite the jar's pattern textures, render as a swaying 3D flag ---
+const DYE = { white: 0xF9FFFE, orange: 0xF9801D, magenta: 0xC74EBD, light_blue: 0x3AB3DA, yellow: 0xFED83D,
+  lime: 0x80C71F, pink: 0xF38BAA, gray: 0x474F52, light_gray: 0x9D9D97, cyan: 0x169C9C, purple: 0x8932B8,
+  blue: 0x3C44AA, brown: 0x835432, green: 0x5E7C16, red: 0xB02E26, black: 0x1D1D21 };
+const pixels = src => new Promise(res => {
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement("canvas");
+    c.width = img.width; c.height = img.height;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    res(ctx.getImageData(0, 0, img.width, img.height).data);
+  };
+  img.src = src;
+});
+const BTEX = Object.fromEntries(await Promise.all(Object.entries(window.BANNER).map(async ([n, src]) => [n, await pixels(src)])));
+function parseBanner(cmd) {  // "<color>_banner[banner_patterns=[{pattern, color}, ...]]", unknown patterns/colors skipped
+  const base = /(?:^|[:\s])([a-z_]+)_banner\b/.exec(cmd)?.[1];
+  const layers = [...cmd.matchAll(/\{[^{}]*\}/g)]
+    .map(([o]) => [/pattern"?\s*:\s*"?(?:minecraft:)?([a-z_]+)/.exec(o)?.[1], /color"?\s*:\s*"?([a-z_]+)/.exec(o)?.[1]])
+    .filter(([p, c]) => BTEX[p] && c in DYE);
+  return { base: base in DYE ? base : "white", layers };
+}
+function bannerTexture({ base, layers }) {  // 20x40 RGB: each greyscale layer x dye colour, alpha-composited
+  const out = new Float32Array(20 * 40 * 3);
+  for (const [p, c] of [["base", base], ...layers]) {
+    const t = BTEX[p], d = [DYE[c] >> 16, DYE[c] >> 8 & 255, DYE[c] & 255];
+    for (let i = 0; i < 800; i++) {
+      const al = t[i * 4 + 3] / 255;
+      for (let k = 0; k < 3; k++) out[i * 3 + k] += (t[i * 4 + k] * d[k] / 255 - out[i * 3 + k]) * al;
+    }
+  }
+  return out;
+}
+let bopt = {};  // set from the Banner inputs
+// one frame: forward-splat texel samples (2 per output px) through ripple, sway (pitch about the top), yaw and perspective, z-buffered
+function bannerFrame(tex, a) {
+  const { size: k, yaw, spin, sway, ripple, bar } = bopt, D = 80;
+  const W = Math.round(30 * k), H = Math.round(47 * k), top = 3 * k;
+  const px = new Uint8ClampedArray(W * H * 4), zb = new Float32Array(W * H).fill(Infinity);
+  const th = sway * Math.PI / 180 * Math.sin(2 * Math.PI * a), ct = Math.cos(th), st = Math.sin(th);
+  const ph = yaw * Math.PI / 180 + (spin ? 2 * Math.PI * a : 0), cp = Math.cos(ph), sp = Math.sin(ph);
+  const splat = (u, v, z, dzdv, swing, col) => {
+    const x = u - 10, y = swing ? v * ct - z * st : v, zz = swing ? v * st + z * ct : z;
+    const X = x * cp + zz * sp, Z = -x * sp + zz * cp, s = D / (D + Z);
+    const sx = Math.round(W / 2 + X * s * k), sy = Math.round(top + y * s * k), i = sy * W + sx;
+    if (sx < 0 || sx >= W || sy < 0 || sy >= H || Z >= zb[i]) return;
+    // light = how much the normal (0, -dz/dv, 1) faces the camera after sway + yaw; the back shows mirrored, like in game
+    const nz = swing ? -dzdv * st + ct : 1, l = 0.55 + 0.45 * Math.abs(nz * cp) / Math.hypot(1, dzdv);
+    zb[i] = Z;
+    px[i * 4] = col[0] * l; px[i * 4 + 1] = col[1] * l; px[i * 4 + 2] = col[2] * l; px[i * 4 + 3] = 255;
+  };
+  const step = 0.5 / k, w = 2 * Math.PI / 25, ph2 = 2 * Math.PI * a;
+  for (let v = 0; v < 40; v += step) {  // ripple: wave running down the cloth, growing towards the free bottom edge
+    const amp = ripple * v / 40, z = amp * Math.sin(w * v - ph2);
+    const dzdv = ripple / 40 * Math.sin(w * v - ph2) + amp * w * Math.cos(w * v - ph2);
+    for (let u = 0; u < 20; u += step) {
+      const i = (Math.floor(v) * 20 + Math.floor(u)) * 3;
+      splat(u, v, z, dzdv, true, [tex[i], tex[i + 1], tex[i + 2]]);
+    }
+  }
+  if (bar) for (let v = -2; v < 0; v += step) for (let u = 0; u < 20; u += step) {
+    const t = BTEX.bar, i = (Math.floor(v + 2) * 20 + Math.floor(u)) * 4;
+    splat(u, v, -0.5, 0, false, [t[i], t[i + 1], t[i + 2]]);
+  }
+  return { px, W, H };
+}
+function makeBannerGif(banner) {  // transparent background (1-bit alpha), dispose=2 so frames don't smear
+  const tex = bannerTexture(banner), gif = GIFEncoder();
+  for (let f = 0; f < FRAMES; f++) {
+    const { px, W, H } = bannerFrame(tex, f / FRAMES);
+    const palette = quantize(px, 256, { format: "rgba4444", oneBitAlpha: true });
+    const ti = palette.findIndex(c => c[3] === 0);
+    gif.writeFrame(applyPalette(px, palette, "rgba4444"), W, H,
+      { palette, delay: ms, transparent: ti >= 0, transparentIndex: Math.max(ti, 0), dispose: 2 });
   }
   gif.finish();
   return new Blob([gif.bytes()], { type: "image/gif" });
@@ -250,6 +343,8 @@ function readOpts() {
   ms = clamp("ms", 20, 200, 60);
   wave = clamp("wave", 0, 2, 1);
   shadow = $("shadow").checked;
+  bopt = { size: clamp("bsize", 1, 12, 5), yaw: clamp("yaw", -90, 90, 25), spin: $("spin").checked,
+    sway: clamp("sway", 0, 45, 8), ripple: clamp("ripple", 0, 4, 1), bar: $("bar").checked };
 }
 // random pair: a bright hue plus its opposite (complement, ±15° jitter so pairs vary)
 const hslHex = (h, s, l) => "#" + [0, 8, 4].map(n => {
@@ -276,23 +371,30 @@ let timer;
 function update() { clearTimeout(timer); timer = setTimeout(render, 200); }
 document.querySelector("main").addEventListener("input", update);
 for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => {
-  mode = b.dataset.mode;
+  mode = document.querySelector("main").dataset.mode = b.dataset.mode;
   for (const o of document.querySelectorAll("#tabs button")) o.setAttribute("aria-pressed", o === b);
   update();
 };
 function render() {
-  const lines = getLines();
-  if (!lines.length) return;
   readOpts();
-  const scale = clamp("scale", 1, 8, 2), width = +$("width").value || 0;
-  const c1 = hex($("c1").value), c2 = hex($("c2").value);
   const old = made;
-  made = URL.createObjectURL(makeGif(lines, scale, width, c1, c2));
-  const name = ([...lines.join(" ").replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "button") + (mode === "banner" ? "-banner" : "") + ".gif";
+  let name, lines = [];
+  if (mode === "banner") {
+    const b = parseBanner($("cmd").value.toLowerCase());
+    made = URL.createObjectURL(makeBannerGif(b));
+    name = `${b.base}_banner.gif`;
+  } else {
+    lines = getLines();
+    if (!lines.length) return;
+    const scale = clamp("scale", 1, 8, 2), width = +$("width").value || 0;
+    const c1 = hex($("c1").value), c2 = hex($("c2").value);
+    made = URL.createObjectURL(makeGif(lines, scale, width, c1, c2));
+    name = ([...lines.join(" ").replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "button") + (mode === "moving" ? "-moving" : "") + ".gif";
+  }
   const item = document.createElement("div");
   item.className = "item";
   const img = document.createElement("img");
-  img.src = made; img.alt = lines.join(" / ");
+  img.src = made; img.alt = lines.join(" / ") || name;
   const a = document.createElement("a");
   a.className = "btn"; a.href = made; a.download = name; a.textContent = "Download";
   item.append(img, a);
