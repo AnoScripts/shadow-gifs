@@ -35,6 +35,7 @@
   #icons img { height:20px; image-rendering:pixelated; }
   #out { display:grid; gap:12px; margin-top:16px; }
   .item { background:var(--panel); border-radius:6px; padding:10px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
+  .btns { display:flex; gap:8px; }
   .item img, .item canvas { image-rendering:pixelated; max-width:100%; }
 </style>
 </head>
@@ -348,7 +349,7 @@ function cardFrame(pic, a, box) {
   return { px };
 }
 // picAt(f, a) -> card for frame f (a = motion phase); n frames, motion runs round(n/40) cycles so long loops keep the usual speed.
-// Transparent background (1-bit alpha), dispose=2 so frames don't smear.
+// Transparent background (1-bit alpha), dispose=2 so frames don't smear. n = 1 means nothing moves: returns a PNG (Promise<Blob>).
 function makeCardGif(picAt, n) {
   const cycles = Math.max(1, Math.round(n / FRAMES)), at = f => f / n * cycles, gif = GIFEncoder();
   const full = picAt(n - 1, 0), k = full.k, pad = 2 + Math.ceil(k);
@@ -356,6 +357,7 @@ function makeCardGif(picAt, n) {
   const x0 = Math.min(...bounds.map(b => b.x0)), y0 = Math.min(...bounds.map(b => b.y0));
   const W = Math.ceil((Math.max(...bounds.map(b => b.x1)) - x0) * k) + 2 * pad + 1;
   const H = Math.ceil((Math.max(...bounds.map(b => b.y1)) - y0) * k) + 2 * pad + 1;
+  if (n === 1) return pngBlob(cardFrame(full, 0, { x0, y0, W, H, pad }).px, W, H);
   for (let f = 0; f < n; f++) {
     const { px } = cardFrame(picAt(f, at(f)), at(f), { x0, y0, W, H, pad });
     const palette = quantize(px, 256, { format: "rgba4444", oneBitAlpha: true });
@@ -426,8 +428,9 @@ function makeSignGif(lines, c1, c2) {
   iconSize = Math.min(iconSize, SIGN[bopt.type].line);  // icons can't be taller than a sign line (readOpts resets it each render)
   Object.assign(bopt, { yaw: 0, sway: 0, spin: false });  // signs never turn or sway in game: always straight on
   const rows = lines.map(tokenize), total = rows.reduce((s, r) => s + r.length, 0);
-  // typewriter: one character per frame, then hold the full sign for 25 frames before looping
-  const n = bopt.typewriter ? Math.max(FRAMES, total + 25) : FRAMES;
+  // typewriter: one character per frame, then hold the full sign for 25 frames before looping;
+  // with neither typewriter nor the (animated) gradient nothing moves, so it's a single PNG frame
+  const n = bopt.typewriter ? Math.max(FRAMES, total + 25) : bopt.color === "gradient" ? FRAMES : 1;
   return makeCardGif((f, a) => signCard(rows, bopt.typewriter ? f : total, a, c1, c2), n);
 }
 
@@ -503,7 +506,33 @@ for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => {
   showMode();
   update();
 };
-function render() {
+const pngBlob = (px, W, H) => new Promise(res => {
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  c.getContext("2d").putImageData(new ImageData(px, W, H), 0, 0);
+  c.toBlob(res, "image/png");
+});
+// clipboard only takes PNG, so a GIF is copied as its first frame (the button says so)
+async function copyImage(url, btn) {
+  const label = btn.textContent;
+  try {
+    const png = (async () => {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      return new Promise(res => c.toBlob(res, "image/png"));
+    })();
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);  // promise, not blob: keeps the click's user activation
+    btn.textContent = "Copied!";
+  } catch {
+    btn.textContent = "Copy failed";
+  }
+  setTimeout(() => btn.textContent = label, 1500);
+}
+async function render() {
   readOpts();
   const old = made;
   let name, lines = [];
@@ -514,8 +543,9 @@ function render() {
   } else if (mode === "sign") {
     lines = $("signtext").value.split("\n").slice(0, 4);  // signs hold 4 lines; blank lines count
     while (lines.length && !lines.at(-1).trim()) lines.pop();
-    made = URL.createObjectURL(makeSignGif(lines, hex($("c1").value), hex($("c2").value)));
-    name = `${bopt.wood}_${bopt.type}_sign.gif`;
+    const out = await makeSignGif(lines, hex($("c1").value), hex($("c2").value));
+    made = URL.createObjectURL(out);
+    name = `${bopt.wood}_${bopt.type}_sign.${out.type === "image/png" ? "png" : "gif"}`;
   } else {
     lines = getLines();
     if (!lines.length) return;
@@ -530,7 +560,14 @@ function render() {
   img.src = made; img.alt = lines.join(" / ") || name;
   const a = document.createElement("a");
   a.className = "btn"; a.href = made; a.download = name; a.textContent = "Download";
-  item.append(img, a);
+  const copy = document.createElement("button"), url = made;
+  copy.type = "button"; copy.className = "secondary";
+  copy.textContent = name.endsWith(".gif") ? "Copy (still frame)" : "Copy";
+  copy.onclick = () => copyImage(url, copy);
+  const btns = document.createElement("div");
+  btns.className = "btns";
+  btns.append(copy, a);
+  item.append(img, btns);
   img.onload = () => { $("out").replaceChildren(item); if (old) URL.revokeObjectURL(old); };  // swap only once decoded, so the panel never collapses
 };
 render();
