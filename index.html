@@ -273,17 +273,22 @@ function bannerTexture({ base, layers }) {  // 20x40 RGB: each greyscale layer x
 }
 let bopt = {};  // set from the Banner inputs
 const OUTLINE_BG = [49, 51, 56];  // Discord dark theme chat background (#313338)
-// one frame: forward-splat texel samples (2 per output px) through ripple, sway (pitch about the top), yaw and perspective, z-buffered
-function bannerFrame(tex, a) {
+// one frame: forward-splat texel samples (~3 per output px) through ripple, sway (pitch about the top), yaw and perspective, z-buffered.
+// Without `box` it only measures the projected bounds (texel units); makeBannerGif unions them over all frames so nothing gets cut off.
+function bannerFrame(tex, a, box) {
   const { size: k, yaw, spin, sway, ripple, bar, outline } = bopt, D = 80;
-  const W = Math.round(30 * k), H = Math.round(47 * k), top = 3 * k;
-  const px = new Uint8ClampedArray(W * H * 4), zb = new Float32Array(W * H).fill(Infinity);
+  const m = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity }, W = box?.W, H = box?.H;
+  const px = box && new Uint8ClampedArray(W * H * 4), zb = box && new Float32Array(W * H).fill(Infinity);
   const th = sway * Math.PI / 180 * Math.sin(2 * Math.PI * a), ct = Math.cos(th), st = Math.sin(th);
   const ph = yaw * Math.PI / 180 + (spin ? 2 * Math.PI * a : 0), cp = Math.cos(ph), sp = Math.sin(ph);
   const splat = (u, v, z, dzdv, swing, col) => {
     const x = u - 10, y = swing ? v * ct - z * st : v, zz = swing ? v * st + z * ct : z;
     const X = x * cp + zz * sp, Z = -x * sp + zz * cp, s = D / (D + Z);
-    const sx = Math.round(W / 2 + X * s * k), sy = Math.round(top + y * s * k), i = sy * W + sx;
+    if (!box) {
+      m.x0 = Math.min(m.x0, X * s); m.x1 = Math.max(m.x1, X * s); m.y0 = Math.min(m.y0, y * s); m.y1 = Math.max(m.y1, y * s);
+      return;
+    }
+    const sx = Math.round((X * s - box.x0) * k) + 2, sy = Math.round((y * s - box.y0) * k) + 2, i = sy * W + sx;
     if (sx < 0 || sx >= W || sy < 0 || sy >= H || Z >= zb[i]) return;
     // light = how much the normal (0, -dz/dv, 1) faces the camera after sway + yaw; the back shows mirrored, like in game
     const nz = swing ? -dzdv * st + ct : 1, l = 0.55 + 0.45 * Math.abs(nz * cp) / Math.hypot(1, dzdv);
@@ -303,6 +308,7 @@ function bannerFrame(tex, a) {
     const t = BTEX.bar, i = (Math.floor(v + 2) * 20 + Math.floor(u)) * 4;
     splat(u, v, -0.5, 0, false, [t[i], t[i + 1], t[i + 2]]);
   }
+  if (!box) return m;
   if (outline) {  // 1 px light rim around the banner, so dark banners read on dark backgrounds
     // GIF alpha is on/off, so "white at opacity x" is pre-blended over Discord's dark background
     // ponytail: looks right on Discord dark only; add a background picker if it's used elsewhere
@@ -317,9 +323,12 @@ function bannerFrame(tex, a) {
   return { px, W, H };
 }
 function makeBannerGif(banner) {  // transparent background (1-bit alpha), dispose=2 so frames don't smear
-  const tex = bannerTexture(banner), gif = GIFEncoder();
+  const tex = bannerTexture(banner), gif = GIFEncoder(), k = bopt.size;
+  const bounds = Array.from({ length: FRAMES }, (_, f) => bannerFrame(tex, f / FRAMES));
+  const x0 = Math.min(...bounds.map(b => b.x0)), y0 = Math.min(...bounds.map(b => b.y0));
+  const W = Math.ceil((Math.max(...bounds.map(b => b.x1)) - x0) * k) + 5, H = Math.ceil((Math.max(...bounds.map(b => b.y1)) - y0) * k) + 5;
   for (let f = 0; f < FRAMES; f++) {
-    const { px, W, H } = bannerFrame(tex, f / FRAMES);
+    const { px } = bannerFrame(tex, f / FRAMES, { x0, y0, W, H });
     const palette = quantize(px, 256, { format: "rgba4444", oneBitAlpha: true });
     // transparent colour goes to slot 0: the GIF background is index 0, and some players (Discord) paint it
     // on dispose=2 instead of clearing, which flashed whatever light colour sat there
