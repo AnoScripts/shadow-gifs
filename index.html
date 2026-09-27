@@ -336,8 +336,7 @@ for (const [cat, list] of Object.entries(window.ICONS)) {
   }
   $("icons").append(row);
 }
-const getLines = () => $("texts").value.split("
-").map(s => mode === "moving" ? s : s.trim()).filter(s => s.trim());  // moving keeps spaces: they are the gap
+const getLines = () => $("texts").value.split("\n").map(s => mode === "moving" ? s : s.trim()).filter(s => s.trim());  // moving keeps spaces: they are the gap
 const clamp = (id, lo, hi, def) => Math.min(hi, Math.max(lo, $(id).value === "" ? def : +$(id).value));
 function readOpts() {
   iconSize = clamp("isize", 4, 18, 12);
