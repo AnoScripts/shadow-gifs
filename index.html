@@ -34,7 +34,6 @@
   <h1>Shadow GIFs</h1>
   <div>
   <textarea id="texts" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
-  <div id="out"></div>
   <fieldset>
     <legend>Size</legend>
     <label>Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
@@ -55,6 +54,7 @@
     <label>Wave (px) <input id="wave" type="number" min="0" max="2" value="1"></label>
     <label><input id="shadow" type="checkbox" checked> Text shadow</label>
   </fieldset>
+  <div id="out"></div>
   </div>
   <div id="icons"></div>
 </main>
@@ -272,7 +272,7 @@ function render() {
   readOpts();
   const scale = clamp("scale", 1, 8, 2), width = +$("width").value || 0;
   const c1 = hex($("c1").value), c2 = hex($("c2").value);
-  if (made) URL.revokeObjectURL(made);
+  const old = made;
   made = URL.createObjectURL(makeGif(lines, scale, width, c1, c2));
   const name = ([...lines.join(" ").replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "button") + ".gif";
   const item = document.createElement("div");
@@ -282,7 +282,7 @@ function render() {
   const a = document.createElement("a");
   a.className = "btn"; a.href = made; a.download = name; a.textContent = "Download";
   item.append(img, a);
-  $("out").replaceChildren(item);
+  img.onload = () => { $("out").replaceChildren(item); if (old) URL.revokeObjectURL(old); };  // swap only once decoded, so the panel never collapses
 };
 render();
 </script>
