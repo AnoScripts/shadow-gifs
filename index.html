@@ -29,7 +29,7 @@
 <body>
 <main>
   <h1>Shadow GIFs</h1>
-  <textarea id="texts" placeholder="One button per line">:enderman: Enderman in Paris :chorus_fruit:</textarea>
+  <textarea id="texts" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
   <div id="icons"></div>
   <div class="row">
     <label>Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
@@ -39,8 +39,7 @@
     <label>Color 2 <input id="c2" type="color" value="#ff5cd6"></label>
   </div>
   <div class="row">
-    <button id="make">Generate GIFs</button>
-    <button id="zipAll" class="secondary" hidden>Download all</button>
+    <button id="make">Generate GIF</button>
   </div>
   <div id="out"></div>
 </main>
@@ -50,7 +49,7 @@ import { GIFEncoder, quantize, applyPalette } from "https://cdn.jsdelivr.net/npm
 
 const FONT_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACAAQMAAAD58POIAAAABlBMVEX///////9VfPVsAAAAAXRSTlMAQObYZgAAAtJJREFUeNrtk6GPG1cQxj90eqBSnoIWVPKoCgg02qtK7oECwyXlBgcMH+vCAQWjolWRoVUVWEUGBQUBgYaBkUL2L4gWXQZEt5l5jq3bVZILDMjn2efVb3+aefukxffMwruGhJh4B0sooO0aTikRgGgAypHAtLuAJtPGABQKKkZIBwduJFiaYdUhpTNg2JQNiP2WeboDWDLlXOlSc/YRnCFrkeecRAQgJMGWQlgNHESYk1LAnpZLCUPMLcCIEUdKQYOQBJ9JBCER80kiQJqArJpDtllr5gim2TY8eciDait9EBbJaMXCzJJCx6+Pgj90YOn7rabQ834v+E/MNKEYshX8cwGlh+CFWAqQE2DxKZylz6JlCmax562KR3vuCfAOZEvTBE7UmGE9HBBFAwKwSCgGERPhDJq9UOJYQCdi4LUQfwQbyeRdSPvQA/MoGIyAJZgDs6PkoKw4AeRD3thuDxw6fjVkIBxlK0mOHHa8FwFaYVF/9/DyBMTCyfGOpRhDbttyXJ15+XIKQMYlCSXEfDsBidMWOGwObS8eNQDguD1y8vOQyEzwqZwN7EnoZAwth2QH1LTpBDjwQC21EpSYC7js5NvNEogTsAKeT0ACCJ7Jwc6NLwMFdgDmUsl6jWlih5Jn3Xngx5vVCqfkdWmJ7hlwSXhoDIOD0uPx/PTbm6qqaqCurSpA/v19CoqhNfSuvr+r1Y23xaiu6qurs6F6d2/G3f296rlHbVUDqNyYAO8xBZUVnKD8PgsW9fXNu/F6fDdejOUSsAIW4+h1fWOPi4HiVKWBL4+DUpVdhkcMT8ZPAKvFwv4mRvXAGMfxZrG4GUe17QxPfEjtl7/EV4Jpfvl5Bn5NM/Anz8BfOgN/82M9/i9T5qEUf4jAGvjRF7wnoqeRbjsg9p0C0JieRmwddKQnI0bFujKQ9NQjRtyiQtcNbqC4WwAN4Iaqxg6eJc6JDz6OD74blGMNvZoZAAAAAElFTkSuQmCC";
 const CHARS = ["\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", " !\"#$%&'()*+,-./", "0123456789:;<=>?", "@ABCDEFGHIJKLMNO", "PQRSTUVWXYZ[\\]^_", "`abcdefghijklmno", "pqrstuvwxyz{|}~\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u00a3\u0000\u0000\u0192", "\u0000\u0000\u0000\u0000\u0000\u0000\u00aa\u00ba\u0000\u0000\u00ac\u0000\u0000\u0000\u00ab\u00bb", "\u2591\u2592\u2593\u2502\u2524\u2561\u2562\u2556\u2555\u2563\u2551\u2557\u255d\u255c\u255b\u2510", "\u2514\u2534\u252c\u251c\u2500\u253c\u255e\u255f\u255a\u2554\u2569\u2566\u2560\u2550\u256c\u2567", "\u2568\u2564\u2565\u2559\u2558\u2552\u2553\u256b\u256a\u2518\u250c\u2588\u2584\u258c\u2590\u2580", "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u2205\u2208\u0000", "\u2261\u00b1\u2265\u2264\u2320\u2321\u00f7\u2248\u00b0\u2219\u0000\u221a\u207f\u00b2\u25a0\u0000"];
-const FRAMES = 40, MS = 60, H = 20;
+const FRAMES = 40, MS = 60;
 const FILL = [93, 84, 104], TOP = [140, 118, 165], BOTTOM = [60, 40, 70], EDGE = [20, 4, 20];
 
 // --- font: glyph alpha masks cut from ascii.png ---
@@ -91,10 +90,19 @@ await Promise.all(Object.entries(iconSrc).map(([name, src]) => new Promise(res =
 })));
 let iconSize = 12;
 const iconCache = {};
+function emojiImg(e) {  // emoji drawn with the system emoji font on a 64px canvas, then treated like an icon
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d");
+  ctx.font = "56px 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(e, 32, 36);
+  return c;
+}
 function getIcon(name) {  // scaled pixel data, cached per size; smooth when shrinking, crisp when growing
   const key = name + "@" + iconSize;
   if (!iconCache[key]) {
-    const img = iconImg[name], k = iconSize / 16;
+    const img = iconImg[name] ||= emojiImg(name), k = iconSize / (iconSrc[name] ? 16 : 64);
     const w = Math.max(1, Math.round(img.width * k)), h = Math.max(1, Math.round(img.height * k));
     const c = document.createElement("canvas");
     c.width = w; c.height = h;
@@ -106,9 +114,12 @@ function getIcon(name) {  // scaled pixel data, cached per size; smooth when shr
   }
   return iconCache[key];
 }
-// text -> tokens: ":name:" becomes an icon, everything else a glyph
+// text -> tokens: ":name:" and emoji become icons, everything else a glyph
+const graphemes = new Intl.Segmenter();
+const isEmoji = s => /\p{Extended_Pictographic}|\p{Regional_Indicator}|⃣/u.test(s);
 const tokenize = text => text.split(/(:[a-z_]+:)/).flatMap(p =>
-  /^:.*:$/.test(p) && iconImg[p.slice(1, -1)] ? [{ icon: getIcon(p.slice(1, -1)) }] : [...p]);
+  /^:.*:$/.test(p) && iconSrc[p.slice(1, -1)] ? [{ icon: getIcon(p.slice(1, -1)) }] :
+  [...graphemes.segment(p)].flatMap(({ segment: s }) => isEmoji(s) ? [{ icon: getIcon(s) }] : [...s]));
 const tokW = t => t.icon ? t.icon.w : glyph(t).w;
 
 // --- rendering (same look as mc_button_gif.py) ---
@@ -117,8 +128,13 @@ const mix = (a, b, t) => a.map((x, i) => Math.round(x + (b[i] - x) * t));
 const grad = (u, c1, c2) => mix(c1, c2, (1 - Math.cos(u * 2 * Math.PI)) / 2);
 const mod1 = x => ((x % 1) + 1) % 1;
 
-function renderFrame(text, w, t, c1, c2) {
-  const px = new Uint8ClampedArray(w * H * 4);
+// lines -> button height: 20 px for one line, each extra line adds a row pitch (taller when icons are used)
+const pitch = rows => Math.max(10, rows.some(r => r.some(c => c.icon)) ? iconSize + 2 : 0);
+const height = rows => 20 + (rows.length - 1) * pitch(rows);
+const rowW = chars => chars.reduce((s, c) => s + tokW(c) + 1, 0) - 1;
+
+function renderFrame(rows, w, t, c1, c2) {
+  const H = height(rows), px = new Uint8ClampedArray(w * H * 4);
   const set = (x, y, c) => { const i = (y * w + x) * 4; px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255; };
   for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) set(x, y, FILL);
   for (let x = 1; x < w - 1; x++) { set(x, 1, TOP); set(x, H - 2, BOTTOM); set(x, H - 3, BOTTOM); }
@@ -128,14 +144,13 @@ function renderFrame(text, w, t, c1, c2) {
   for (let x = w - 2; x >= 0; x--) perim.push([x, H - 1]);
   for (let y = H - 2; y > 0; y--) perim.push([0, y]);
   perim.forEach(([x, y], i) => set(x, y, mix(grad(mod1(i / perim.length * 2 - t), c1, c2), EDGE, 0.15)));
-  const chars = tokenize(text);
-  const tw = chars.reduce((s, c) => s + tokW(c) + 1, 0) - 1;
-  let x0 = Math.floor((w - tw) / 2);
-  const y0 = Math.floor((H - 8) / 2);
+  rows.forEach((chars, row) => {
+  let x0 = Math.floor((w - rowW(chars)) / 2);
+  const y0 = Math.floor((H - 8 - (rows.length - 1) * pitch(rows)) / 2) + row * pitch(rows);
   chars.forEach((c, i) => {
     const dy = Math.round(Math.sin(2 * Math.PI * (t * 2 - i / 8)));
     if (c.icon) {  // centred on the text line; 16px + bob stays inside the border rows
-      const { w: iw, h: ih, data } = c.icon, iy = Math.floor((H - ih) / 2) + dy;
+      const { w: iw, h: ih, data } = c.icon, iy = y0 + Math.floor((8 - ih) / 2) + dy;
       for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) {
         const si = (y * iw + x) * 4, a = data[si + 3] / 255;
         const X = x0 + x, Y = iy + y, di = (Y * w + X) * 4;
@@ -156,10 +171,11 @@ function renderFrame(text, w, t, c1, c2) {
     draw(0, dy, col);
     x0 += g.w + 1;
   });
+  });
   return px;
 }
 
-function upscale(px, w, s) {
+function upscale(px, w, H, s) {
   const W = w * s, HH = H * s, out = new Uint8ClampedArray(W * HH * 4);
   for (let y = 0; y < HH; y++) for (let x = 0; x < W; x++) {
     const si = (Math.floor(y / s) * w + Math.floor(x / s)) * 4, di = (y * W + x) * 4;
@@ -168,12 +184,12 @@ function upscale(px, w, s) {
   return out;
 }
 
-function makeGif(text, scale, width, c1, c2) {
-  const tw = tokenize(text).reduce((s, c) => s + tokW(c) + 1, 0);
-  const w = width || Math.max(tw + 40, 200);
+function makeGif(lines, scale, width, c1, c2) {
+  const rows = lines.map(tokenize), H = height(rows);
+  const w = width || Math.max(Math.max(...rows.map(rowW)) + 41, 200);
   const gif = GIFEncoder();
   for (let f = 0; f < FRAMES; f++) {
-    const data = upscale(renderFrame(text, w, f / FRAMES, c1, c2), w, scale);
+    const data = upscale(renderFrame(rows, w, f / FRAMES, c1, c2), w, H, scale);
     const palette = quantize(data, 256);
     gif.writeFrame(applyPalette(data, palette), w * scale, H * scale, { palette, delay: MS });
   }
@@ -183,7 +199,7 @@ function makeGif(text, scale, width, c1, c2) {
 
 // --- UI ---
 const $ = id => document.getElementById(id);
-let made = [];
+let made = null;
 for (const [cat, list] of Object.entries(window.ICONS)) {
   const row = document.createElement("div");
   row.className = "cat";
@@ -203,30 +219,22 @@ for (const [cat, list] of Object.entries(window.ICONS)) {
 }
 $("make").onclick = () => {
   const lines = $("texts").value.split("\n").map(s => s.trim()).filter(Boolean);
+  if (!lines.length) return;
   const scale = Math.max(1, +$("scale").value || 2), width = +$("width").value || 0;
   const c1 = hex($("c1").value), c2 = hex($("c2").value);
   iconSize = Math.min(18, Math.max(4, +$("isize").value || 12));
-  made.forEach(m => URL.revokeObjectURL(m.url));
-  made = [];
-  $("out").innerHTML = "";
-  for (const text of lines) {
-    const url = URL.createObjectURL(makeGif(text, scale, width, c1, c2));
-    const name = ([...text.replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "button") + ".gif";
-    made.push({ url, name });
-    const item = document.createElement("div");
-    item.className = "item";
-    const img = document.createElement("img");
-    img.src = url; img.alt = text;
-    const a = document.createElement("a");
-    a.className = "btn"; a.href = url; a.download = name; a.textContent = "Download";
-    item.append(img, a);
-    $("out").append(item);
-  }
-  $("zipAll").hidden = made.length < 2;
+  if (made) URL.revokeObjectURL(made);
+  made = URL.createObjectURL(makeGif(lines, scale, width, c1, c2));
+  const name = ([...lines.join(" ").replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "button") + ".gif";
+  const item = document.createElement("div");
+  item.className = "item";
+  const img = document.createElement("img");
+  img.src = made; img.alt = lines.join(" / ");
+  const a = document.createElement("a");
+  a.className = "btn"; a.href = made; a.download = name; a.textContent = "Download";
+  item.append(img, a);
+  $("out").replaceChildren(item);
 };
-$("zipAll").onclick = () => made.forEach(({ url, name }, i) => setTimeout(() => {
-  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
-}, i * 250));
 $("make").click();
 </script>
 </body>
