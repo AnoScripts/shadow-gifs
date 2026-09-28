@@ -18,6 +18,8 @@
   .bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:10px 16px; color:var(--muted); }
   #seek { flex:1; min-width:160px; accent-color:var(--accent); }
   #time { color:var(--text); font-variant-numeric:tabular-nums; min-width:15ch; }
+  #stats { display:flex; gap:12px; font-variant-numeric:tabular-nums; }
+  #stats b { color:var(--text); font-weight:600; }
   select { background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:6px; padding:6px; font:inherit; }
   main { padding:0 16px 24px; }
   #drop { border:2px dashed #3a3144; border-radius:8px; min-height:60vh; display:grid; place-items:center; color:var(--muted); text-align:center; padding:16px; }
@@ -44,6 +46,7 @@
   <span id="time"></span>
   <label>Speed <select id="speed"><option>0.25</option><option>0.5</option><option selected>1</option><option>2</option><option>4</option><option>8</option></select>×</label>
   <label><input id="smooth" type="checkbox" checked> Smooth</label>
+  <span id="stats"></span>
 </div>
 <main>
   <div id="drop">Drop an <b>attack-replay-….json</b> here, or use “Open replay”.<br>CCNotify saves one into Downloads after every attack.</div>
@@ -122,6 +125,11 @@ function draw() {
   const s = R.sampleMs / 1000;
   $("seek").value = f;
   $("time").textContent = `${(t * s).toFixed(1)}s / ${((R.frames.length - 1) * s).toFixed(1)}s · ${f + 1}/${R.frames.length} · ${R.frames[f].length} troops`;
+  // what the raid sidebar showed at this frame; -1 = it wasn't showing that line yet
+  const [dest, gold, amst] = R.stats?.[f] ?? [-1, -1, -1];
+  const n = v => v < 0 ? "–" : v >= 1e6 ? (v / 1e6).toFixed(2).replace(/\.?0+$/, "") + "M"
+    : v >= 1000 ? (v / 1000).toFixed(1).replace(/\.0$/, "") + "k" : v;
+  $("stats").innerHTML = `Destruction <b>${dest < 0 ? "–" : dest + "%"}</b> · Gold <b>${n(gold)}</b> · AMST <b>${n(amst)}</b>`;
 }
 
 function setPlaying(on) {
