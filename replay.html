@@ -107,7 +107,7 @@ function mapAt(f) {
 
 function draw() {
   if (!R) return;
-  const f = Math.min(Math.floor(t), R.frames.length - 1), k = t - f;
+  const f = Math.min(Math.max(0, Math.floor(t)), R.frames.length - 1), k = Math.max(0, t - f);
   mapAt(f);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(mapCanvas, 0, 0, c.width, c.height);
@@ -141,7 +141,9 @@ function setPlaying(on) {
 }
 function step(now) {
   if (!playing) return;
-  t += (now - last) / R.sampleMs * +$("speed").value;
+  // a rAF timestamp can be a hair older than the performance.now() taken in the click handler, so the first step
+  // can be negative - unclamped that made t < 0 and frames[-1] threw, killing the loop (Play did nothing at 0.0s)
+  t = Math.max(0, t + (now - last) / R.sampleMs * +$("speed").value);
   last = now;
   if (t >= R.frames.length - 1) { t = R.frames.length - 1; setPlaying(false); }
   draw();
