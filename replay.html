@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attack Replay</title>
+<style>
+  :root { --bg:#1b1720; --panel:#26202d; --text:#eee; --muted:#a99bb8; --accent:#b06cff; }
+  * { box-sizing:border-box; }
+  html { scrollbar-gutter:stable; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.4 system-ui, sans-serif; }
+  header { position:sticky; top:0; z-index:1; display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; background:var(--bg); padding:12px 16px; border-bottom:1px solid #3a3144; }
+  h1 { font-size:20px; margin:0; }
+  button, a.btn, label.btn { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font:inherit; cursor:pointer; text-decoration:none; }
+  .secondary { background:#3a3144 !important; }
+  button:disabled { opacity:.4; cursor:default; }
+  #info { color:var(--muted); }
+  .bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:10px 16px; color:var(--muted); }
+  #seek { flex:1; min-width:160px; accent-color:var(--accent); }
+  #time { color:var(--text); font-variant-numeric:tabular-nums; min-width:15ch; }
+  select { background:var(--panel); color:var(--text); border:1px solid #3a3144; border-radius:6px; padding:6px; font:inherit; }
+  main { padding:0 16px 24px; }
+  #drop { border:2px dashed #3a3144; border-radius:8px; min-height:60vh; display:grid; place-items:center; color:var(--muted); text-align:center; padding:16px; }
+  #drop.over { border-color:var(--accent); }
+  /* the replay is small (2 px a block): blow it up to the window, crisp */
+  canvas { display:block; margin:0 auto; image-rendering:pixelated; width:auto; height:min(calc(100vh - 150px), calc(100vw - 32px)); max-width:100%; }
+  input[type=file] { display:none; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Attack Replay</h1>
+  <a class="btn secondary" href="index.html">Shadow GIFs</a>
+  <a class="btn secondary" href="planner.html">Attack Planner</a>
+  <label class="btn">Open replay<input id="file" type="file" accept=".json,application/json"></label>
+  <span id="info"></span>
+</header>
+<div class="bar" id="controls" hidden>
+  <button id="play" type="button" title="Space">Play</button>
+  <button id="prev" type="button" class="secondary" title="Left arrow">&#9664;</button>
+  <button id="next" type="button" class="secondary" title="Right arrow">&#9654;</button>
+  <input id="seek" type="range" min="0" value="0" step="1">
+  <span id="time"></span>
+  <label>Speed <select id="speed"><option>0.25</option><option>0.5</option><option selected>1</option><option>2</option><option>4</option><option>8</option></select>×</label>
+  <label><input id="smooth" type="checkbox" checked> Smooth</label>
+</div>
+<main>
+  <div id="drop">Drop an <b>attack-replay-….json</b> here, or use “Open replay”.<br>CCNotify saves one into Downloads after every attack.</div>
+  <canvas id="c" hidden></canvas>
+</main>
+<script src="icons.js?v=5"></script>
+<script>
+const PX = 2;  // canvas px per block, like the GIF: heads are drawn at their own size (16 px face = 8 blocks)
+const $ = id => document.getElementById(id), c = $("c"), ctx = c.getContext("2d");
+const faces = {};
+let R = null, mapCanvas = null, mapFrame = -1, t = 0, playing = false, last = 0;
+
+function face(mob) {
+  if (!faces[mob]) {
+    const img = faces[mob] = new Image();
+    img.src = window.ICONS.Mobs[mob] || "";
+    img.onload = draw;
+  }
+  return faces[mob];
+}
+
+function load(file) {
+  if (!file) return;
+  file.text().then(text => {
+    const r = JSON.parse(text);
+    if (!r.frames?.length || !r.map) throw new Error("not a replay file");
+    R = r;
+    const bytes = Uint8Array.from(atob(r.map), ch => ch.charCodeAt(0));
+    R.base = new ImageData(r.width, r.height);
+    for (let i = 0; i < r.width * r.height; i++) {
+      R.base.data.set([bytes[i * 3], bytes[i * 3 + 1], bytes[i * 3 + 2], 255], i * 4);
+    }
+    mapCanvas = new OffscreenCanvas(r.width, r.height);
+    mapFrame = -1;
+    c.width = r.width * PX; c.height = r.height * PX;
+    c.hidden = false; $("drop").hidden = true; $("controls").hidden = false;
+    $("seek").max = r.frames.length - 1;
+    const when = r.date ? new Date(r.date).toLocaleString() : "";
+    $("info").textContent = `${r.shadow ? "Shadow attack" : "Attack"}${r.target ? " on " + r.target : ""} · ${when} · ${r.frames.length} frames`;
+    t = 0; setPlaying(false); draw();
+  }).catch(e => alert("Couldn't read that replay: " + e.message));
+}
+
+// the map as it was at frame f: the first map plus every change up to f (rebuilt only when f moves past a change)
+function mapAt(f) {
+  const upto = R.mapChanges.filter(ch => ch.frame <= f).length;
+  if (upto === mapFrame) return;
+  mapFrame = upto;
+  const img = new ImageData(new Uint8ClampedArray(R.base.data), R.width, R.height);
+  for (const ch of R.mapChanges.slice(0, upto)) {
+    for (let k = 0; k < ch.cells.length; k += 2) {
+      const i = ch.cells[k], rgb = ch.cells[k + 1];
+      img.data.set([rgb >> 16 & 255, rgb >> 8 & 255, rgb & 255, 255], i * 4);
+    }
+  }
+  mapCanvas.getContext("2d").putImageData(img, 0, 0);
+}
+
+function draw() {
+  if (!R) return;
+  const f = Math.min(Math.floor(t), R.frames.length - 1), k = t - f;
+  mapAt(f);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(mapCanvas, 0, 0, c.width, c.height);
+  // between two samples each troop slides from its spot to its next one (matched by entity id)
+  const next = new Map();
+  if ($("smooth").checked && k > 0 && f + 1 < R.frames.length) for (const tr of R.frames[f + 1]) next.set(tr[0], tr);
+  for (const [id, mob, x, z, ghost] of R.frames[f]) {
+    const n = next.get(id), img = face(mob);
+    if (!img.complete || !img.naturalWidth) continue;
+    const px = (n ? x + (n[2] - x) * k : x) * PX, pz = (n ? z + (n[3] - z) * k : z) * PX;
+    ctx.globalAlpha = ghost ? 0.5 : 1;  // ghost = out of the server's range, at its last known spot
+    ctx.drawImage(img, Math.round(px - img.naturalWidth / 2), Math.round(pz - img.naturalHeight / 2));
+  }
+  ctx.globalAlpha = 1;
+  const s = R.sampleMs / 1000;
+  $("seek").value = f;
+  $("time").textContent = `${(t * s).toFixed(1)}s / ${((R.frames.length - 1) * s).toFixed(1)}s · ${f + 1}/${R.frames.length} · ${R.frames[f].length} troops`;
+}
+
+function setPlaying(on) {
+  playing = on && !!R;
+  if (playing && t >= R.frames.length - 1) t = 0;  // play at the end starts over
+  $("play").textContent = playing ? "Pause" : "Play";
+  last = performance.now();
+  if (playing) requestAnimationFrame(step);
+}
+function step(now) {
+  if (!playing) return;
+  t += (now - last) / R.sampleMs * +$("speed").value;
+  last = now;
+  if (t >= R.frames.length - 1) { t = R.frames.length - 1; setPlaying(false); }
+  draw();
+  if (playing) requestAnimationFrame(step);
+}
+const go = f => { setPlaying(false); t = Math.max(0, Math.min(R.frames.length - 1, f)); draw(); };
+
+$("play").onclick = () => setPlaying(!playing);
+$("prev").onclick = () => go(Math.ceil(t) - 1);
+$("next").onclick = () => go(Math.floor(t) + 1);
+$("seek").oninput = () => go(+$("seek").value);
+$("smooth").onchange = draw;
+document.addEventListener("keydown", e => {
+  if (!R || e.target.tagName === "SELECT") return;
+  if (e.key === " ") { e.preventDefault(); setPlaying(!playing); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); $("prev").click(); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); $("next").click(); }
+});
+$("file").onchange = e => load(e.target.files[0]);
+for (const el of [$("drop"), c]) {
+  el.addEventListener("dragover", e => { e.preventDefault(); $("drop").classList.add("over"); });
+  el.addEventListener("dragleave", () => $("drop").classList.remove("over"));
+  el.addEventListener("drop", e => { e.preventDefault(); $("drop").classList.remove("over"); load(e.dataTransfer.files[0]); });
+}
+</script>
+</body>
+</html>
