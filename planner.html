@@ -90,7 +90,6 @@ function text(s, x, y, px, color, shadow) {  // MC text with its drop shadow (co
   }
   return x + textW(s) * px;
 }
-const stripH = () => Math.round(14 * px());  // 14 MC px: 10 px heads + margins
 const px = () => Math.max(2, Math.round(bg.width / 320));
 
 for (const [name, space] of Object.entries(MOBS)) {
@@ -114,6 +113,27 @@ function box(h) {
 }
 function draw() {
   if (!bg) return;
+  const count = {};
+  for (const h of heads) count[h.mob] = (count[h.mob] || 0) + 1;
+  const total = heads.reduce((s, h) => s + MOBS[h.mob], 0);
+  // stats strip items (head + count per mob, then totals), wrapped into rows that fit the image width
+  const p = px(), items = [];
+  if (glyphs["?"]) {
+    for (const m of Object.keys(MOBS).filter(m => count[m])) {
+      const img = icons[m], k = 10 * p / Math.max(img.width, img.height), s = `${count[m]}x`;
+      items.push({ img, k, s, w: img.width * k + 2 * p + textW(s) * p, color: "#fff", shadow: "#3f3f3f" });
+    }
+    const s = `Units: ${heads.length}  Housing: ${total}`;
+    items.push({ s, w: textW(s) * p, color: "#ffff55", shadow: "#3f3f15" });
+  }
+  const rows = [[]];
+  let rw = 4 * p;
+  for (const it of items) {
+    if (rows.at(-1).length && rw + it.w > c.width - 4 * p) { rows.push([]); rw = 4 * p; }
+    rows.at(-1).push(it); rw += it.w + 6 * p;
+  }
+  const h = bg.height + (2 + 12 * rows.length) * p;  // 12 MC px per row: 10 px heads + gap
+  if (c.height !== h) c.height = h;  // resizing clears the canvas; everything is redrawn below
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(bg, 0, 0);
   ctx.imageSmoothingEnabled = false;  // crisp MC pixels
@@ -123,22 +143,18 @@ function draw() {
     ctx.fillRect(b.x - o, b.y - o, b.w + 2 * o, b.h + 2 * o);
     ctx.drawImage(icons[h.mob], b.x, b.y, b.w, b.h);
   }
-  const count = {};
-  for (const h of heads) count[h.mob] = (count[h.mob] || 0) + 1;
-  const total = heads.reduce((s, h) => s + MOBS[h.mob], 0);
-  // stats strip under the image (part of the downloaded/copied PNG): head + count per mob, then totals
-  const p = px(), y0 = bg.height;
+  // stats strip under the image (part of the downloaded/copied PNG)
   ctx.fillStyle = "#1b1720";
-  ctx.fillRect(0, y0, c.width, stripH());
-  if (glyphs["?"]) {
+  ctx.fillRect(0, bg.height, c.width, c.height - bg.height);
+  rows.forEach((row, r) => {
+    const y = bg.height + (2 + 12 * r) * p;
     let x = 4 * p;
-    for (const m of Object.keys(MOBS).filter(m => count[m])) {
-      const img = icons[m], k = 10 * p / Math.max(img.width, img.height);
-      ctx.drawImage(img, x, y0 + 2 * p + (10 * p - img.height * k) / 2, img.width * k, img.height * k);
-      x = text(`${count[m]}x`, x + img.width * k + 2 * p, y0 + 3 * p, p, "#fff", "#3f3f3f") + 6 * p;
+    for (const it of row) {
+      if (it.img) ctx.drawImage(it.img, x, y + (10 * p - it.img.height * it.k) / 2, it.img.width * it.k, it.img.height * it.k);
+      text(it.s, x + (it.img ? it.img.width * it.k + 2 * p : 0), y + p, p, it.color, it.shadow);
+      x += it.w + 6 * p;
     }
-    text(`Units: ${heads.length}  Housing: ${total}`, x, y0 + 3 * p, p, "#ffff55", "#3f3f15");
-  }
+  });
   $("housing").textContent = `Housing: ${total}` + (heads.length ? "  (" + Object.entries(count).map(([m, n]) => `${n}× ${m.replace("_", " ")}`).join(", ") + ")" : "");
   $("undo").disabled = $("clear").disabled = !heads.length;
 }
@@ -148,7 +164,7 @@ function load(file) {
   const img = new Image();
   img.onload = () => {
     bg = img; heads = [];
-    c.width = img.width; c.height = img.height + stripH();
+    c.width = img.width; c.height = img.height;  // draw() adds the stats strip
     c.hidden = false; $("drop").hidden = true; $("download").disabled = $("copy").disabled = false;
     URL.revokeObjectURL(img.src);
     draw();
