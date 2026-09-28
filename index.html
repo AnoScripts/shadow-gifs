@@ -41,7 +41,7 @@
 </head>
 <body>
   <header><h1>Shadow GIFs</h1>
-  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="moving" aria-pressed="false">Moving</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button><button type="button" data-mode="sign" aria-pressed="false">Sign</button><button type="button" data-mode="fishing" aria-pressed="false">Fishing</button></nav><a class="btn" href="planner.html" style="background:#3a3144">Attack Planner</a></header>
+  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="moving" aria-pressed="false">Moving</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button><button type="button" data-mode="sign" aria-pressed="false">Sign</button><button type="button" data-mode="fishing" aria-pressed="false">Fishing</button><button type="button" data-mode="book" aria-pressed="false">Book</button></nav><a class="btn" href="planner.html" style="background:#3a3144">Attack Planner</a></header>
 <main data-mode="button">
   <div>
   <textarea id="cmd" data-only="banner" placeholder="Paste a /give command for a banner">give @p minecraft:black_banner[banner_patterns=[{"pattern":"minecraft:stripe_right","color":"black"},{"pattern":"minecraft:stripe_downleft","color":"red"},{"pattern":"minecraft:gradient","color":"black"},{"pattern":"minecraft:bricks","color":"black"},{"pattern":"minecraft:straight_cross","color":"magenta"},{"pattern":"minecraft:skull","color":"purple"},{"pattern":"minecraft:stripe_downright","color":"red"},{"pattern":"minecraft:stripe_bottom","color":"black"},{"pattern":"minecraft:stripe_center","color":"black"},{"pattern":"minecraft:creeper","color":"black"},{"pattern":"minecraft:triangle_top","color":"black"},{"pattern":"minecraft:square_bottom_left","color":"black"},{"pattern":"minecraft:square_top_left","color":"black"}]]</textarea>
@@ -53,6 +53,17 @@
     <label>Text color <select id="scolor"></select></label>
     <label><input id="glow" type="checkbox"> Glowing text</label>
     <label><input id="typewriter" type="checkbox" checked> Typewriter</label>
+  </fieldset>
+  <textarea id="booktext" data-only="book" placeholder="Book page (wraps like in game, 14 lines)">Welcome to the :diamond_sword: Shadow Gang :diamond_sword:
+
+Rule 1: never raid a friend.
+Rule 2: always bring :golden_apple: golden apples.
+
+Signed, the gang</textarea>
+  <fieldset data-only="book">
+    <legend>Book</legend>
+    <label><input id="bgrad" type="checkbox"> Gradient text (Colors)</label>
+    <label><input id="bpage" type="checkbox" checked> Page number</label>
   </fieldset>
   <fieldset data-only="banner">
     <legend>Banner</legend>
@@ -68,14 +79,14 @@
     <label>Outline opacity <input id="outline" type="range" min="0" max="1" step="0.05" value="0.1"> <output id="outlineVal">0.1</output></label>
   </fieldset>
   <textarea id="texts" data-only="button moving fishing" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
-  <fieldset data-only="button moving sign fishing">
+  <fieldset data-only="button moving sign fishing book">
     <legend>Size</legend>
-    <label data-only="button moving fishing">Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
+    <label data-only="button moving fishing book">Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
     <label data-only="button moving">Width (MC px, 0 = auto) <input id="width" type="number" min="0" value="0"></label>
     <button id="fit" type="button" class="secondary" data-only="button moving">Fit to text</button>
     <label>Icon size <input id="isize" type="number" min="4" max="18" value="12"></label>
   </fieldset>
-  <fieldset id="colors" data-only="button moving sign fishing">
+  <fieldset id="colors" data-only="button moving sign fishing book">
     <legend>Colors</legend>
     <label>Color 1 <input id="c1" type="color" value="#865cff"></label>
     <label>Color 2 <input id="c2" type="color" value="#ff5cd6"></label>
@@ -90,9 +101,9 @@
   </fieldset>
   <div id="out"></div>
   </div>
-  <div id="icons" data-only="button moving sign fishing"></div>
+  <div id="icons" data-only="button moving sign fishing book"></div>
 </main>
-<script src="icons.js?v=5"></script>
+<script src="icons.js?v=6"></script>
 <script type="module">
 import { GIFEncoder, quantize, applyPalette } from "https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.esm.js";
 
@@ -350,9 +361,10 @@ function cardFrame(pic, a, box) {
 }
 // picAt(f, a) -> card for frame f (a = motion phase); n frames, motion runs round(n/40) cycles so long loops keep the usual speed.
 // Transparent background (1-bit alpha), dispose=2 so frames don't smear. n = 1 means nothing moves: returns a PNG (Promise<Blob>).
-function makeCardGif(picAt, n) {
+// sizeF: the frame whose card sets the GIF size (default the last; the book's last frame is the small item)
+function makeCardGif(picAt, n, sizeF = n - 1) {
   const cycles = Math.max(1, Math.round(n / FRAMES)), at = f => f / n * cycles, gif = GIFEncoder();
-  const full = picAt(n - 1, 0), k = full.k, pad = 2 + Math.ceil(k);
+  const full = picAt(sizeF, 0), k = full.k, pad = 2 + Math.ceil(k);
   const bounds = Array.from({ length: n }, (_, f) => cardFrame(full, at(f)));
   const x0 = Math.min(...bounds.map(b => b.x0)), y0 = Math.min(...bounds.map(b => b.y0));
   const W = Math.ceil((Math.max(...bounds.map(b => b.x1)) - x0) * k) + 2 * pad + 1;
@@ -511,6 +523,79 @@ function makeFishingGif(lines, scale, c1, c2) {
   return makeCardGif(f => fishingCard(rows, f, c1, c2, scale), FN);
 }
 
+// --- book: written book item, the book screen swings open, the page types itself, holds, closes back into the item ---
+const BKTEX = { gui: await pixels(window.BOOK.gui), item: await pixels(window.BOOK.item) };
+const BOOK_TEXT = [16, 29], BOOK_W = 114, BOOK_LINES = 14, BOOK_HOLD = 50;  // in-game text origin, wrap width, lines per page
+function wrapBook(text) {  // word wrap like BookViewScreen: 114 px, newline = line break, blank lines kept, words too long get split
+  const rows = [];
+  for (const line of text.split("\n")) {
+    let cur = [];
+    const words = tokenize(line).reduce((ws, t) => (t === " " ? ws.push([]) : ws.at(-1).push(t), ws), [[]]);
+    for (const w of words) {
+      const cand = cur.length ? [...cur, " ", ...w] : w;
+      if (rowW(cand) <= BOOK_W) { cur = cand; continue; }
+      if (cur.length) rows.push(cur);
+      cur = [];
+      for (const t of w) { if (cur.length && rowW([...cur, t]) > BOOK_W) { rows.push(cur); cur = []; } cur.push(t); }
+    }
+    rows.push(cur);
+  }
+  return rows.slice(0, BOOK_LINES);
+}
+// tl: timeline from makeBookGif. Open p in (0,1]: the book grows out of the item and un-squashes horizontally (cover swing)
+function bookCard(rows, f, tl, c1, c2, k) {
+  const { gui, item } = BKTEX, w = gui.width, h = gui.height, rgba = new Uint8ClampedArray(w * h * 4);
+  const blit = (img, sx, sy, l) => {  // img centred on the card, scaled sx/sy, nearest sampling, brightness l
+    const hw = img.width * sx / 2, hh = img.height * sy / 2;
+    for (let y = Math.max(0, Math.floor(h / 2 - hh)); y < Math.min(h, Math.ceil(h / 2 + hh)); y++)
+      for (let x = Math.max(0, Math.floor(w / 2 - hw)); x < Math.min(w, Math.ceil(w / 2 + hw)); x++) {
+        const u = Math.floor((x + 0.5 - w / 2 + hw) / sx), v = Math.floor((y + 0.5 - h / 2 + hh) / sy);
+        if (u < 0 || v < 0 || u >= img.width || v >= img.height) continue;
+        const i = (v * img.width + u) * 4;
+        if (img.data[i + 3]) rgba.set([img.data[i] * l, img.data[i + 1] * l, img.data[i + 2] * l, 255], (y * w + x) * 4);
+      }
+  };
+  const p = f < tl.open ? 0 : f < tl.type ? (f - tl.open + 1) / (tl.type - tl.open) : f < tl.close ? 1 : (tl.n - f) / (tl.n - tl.close + 1);
+  if (!p) {  // closed: the item at 4x
+    blit(item, 4, 4, 1);
+    return { w, h, rgba, k, pivot: 0 };
+  }
+  const e = ease(p), s = 64 / h + (1 - 64 / h) * e;
+  blit(gui, s * Math.sin(e * Math.PI / 2), s, 0.7 + 0.3 * e);
+  if (p < 1) return { w, h, rgba, k, pivot: 0 };
+  const set = (x, y, c) => { if (x >= 0 && x < w && y >= 0 && y < h) rgba.set([c[0], c[1], c[2], 255], (y * w + x) * 4); };
+  const text = (chars, x0, y0, left, a) => chars.forEach((c, i) => {
+    if (left-- <= 0) return;
+    if (c.icon) {
+      const { w: iw, h: ih, data } = c.icon, iy = y0 + Math.floor((8 - ih) / 2);
+      for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) {
+        const si = (y * iw + x) * 4, al = data[si + 3] / 255, di = ((iy + y) * w + x0 + x) * 4;
+        if (al) set(x0 + x, iy + y, [0, 1, 2].map(j => Math.round(rgba[di + j] * (1 - al) + data[si + j] * al)));
+      }
+      x0 += iw + 1;
+      return;
+    }
+    const g = glyph(c), col = bopt.bgrad ? grad(mod1(i / Math.max(chars.length, 1) - a), c1, c2) : [0, 0, 0];
+    g.mask.forEach(([gx, gy]) => set(x0 + gx, y0 + gy, col));
+    x0 += g.w + 1;
+  });
+  if (bopt.bpage) { const pg = [..."Page 1 of 1"]; text(pg, 128 - rowW(pg), 15, Infinity, 0); }
+  let left = f < tl.hold ? (f - tl.type + 1) * tl.per : Infinity;  // typewriter: tl.per tokens per frame
+  rows.forEach((chars, r) => { text(chars, BOOK_TEXT[0], BOOK_TEXT[1] + r * 9, left, f / 32); left -= chars.length; });
+  return { w, h, rgba, k, pivot: 0 };
+}
+function makeBookGif(text, scale, c1, c2) {
+  Object.assign(bopt, { yaw: 0, sway: 0, spin: false, outline: 0 });  // flat 2D
+  iconSize = Math.min(iconSize, 9);  // book lines are 9 px apart
+  const rows = wrapBook(text), total = rows.reduce((s, r) => s + r.length, 0);
+  const per = Math.max(1, Math.ceil(total / 48));  // long pages type faster so the GIF stays small
+  const tl = { open: 8, type: 16, per };
+  tl.hold = tl.type + Math.ceil(total / per);
+  tl.close = tl.hold + BOOK_HOLD;
+  tl.n = tl.close + 8;
+  return makeCardGif(f => bookCard(rows, f, tl, c1, c2, scale), tl.n, tl.close - 1);
+}
+
 // --- UI ---
 const $ = id => document.getElementById(id);
 let made = null;
@@ -523,7 +608,7 @@ for (const [cat, list] of Object.entries(window.ICONS)) {
     b.type = "button"; b.title = name;
     b.innerHTML = `<img src="${src}" alt="${name}">`;
     b.onclick = () => {
-      const ta = $(mode === "sign" ? "signtext" : "texts");
+      const ta = $(mode === "sign" ? "signtext" : mode === "book" ? "booktext" : "texts");
       ta.setRangeText(`:${name}:`, ta.selectionStart, ta.selectionEnd, "end");
       ta.focus();
       update();
@@ -542,7 +627,7 @@ function readOpts() {
   bopt = { size: clamp("bsize", 1, 12, 5), yaw: clamp("yaw", -90, 90, 25), spin: $("spin").checked,
     sway: clamp("sway", 0, 45, 8), ripple: clamp("ripple", 0, 4, 1), bar: $("bar").checked,
     outline: +$("outline").value, type: $("stype").value, wood: $("wood").value, color: $("scolor").value,
-    glow: $("glow").checked, typewriter: $("typewriter").checked };
+    glow: $("glow").checked, typewriter: $("typewriter").checked, bgrad: $("bgrad").checked, bpage: $("bpage").checked };
   $("outlineVal").value = bopt.outline;
 }
 // random pair: a bright hue plus its opposite (complement, ±15° jitter so pairs vary)
@@ -571,9 +656,11 @@ $("scolor").innerHTML = ["gradient", ...Object.keys(SIGN_COLOR)].map(c => `<opti
 function showMode() {  // data-only="mode mode ..." lists the tabs an element belongs to
   for (const el of document.querySelectorAll("[data-only]")) el.hidden = !el.dataset.only.split(" ").includes(mode);
   if (mode === "sign" && $("scolor").value !== "gradient") $("colors").hidden = true;  // sign only uses them for the gradient
+  if (mode === "book" && !$("bgrad").checked) $("colors").hidden = true;
 }
 showMode();
 $("scolor").addEventListener("change", showMode);
+$("bgrad").addEventListener("change", showMode);
 let timer;
 function update() { clearTimeout(timer); timer = setTimeout(render, 200); }
 document.querySelector("main").addEventListener("input", update);
@@ -623,6 +710,12 @@ async function render() {
     const out = await makeSignGif(lines, hex($("c1").value), hex($("c2").value));
     made = URL.createObjectURL(out);
     name = `${bopt.wood}_${bopt.type}_sign.${out.type === "image/png" ? "png" : "gif"}`;
+  } else if (mode === "book") {
+    const text = $("booktext").value.replace(/\s+$/, "");
+    if (!text) return;
+    lines = text.split("\n");
+    made = URL.createObjectURL(makeBookGif(text, clamp("scale", 1, 8, 2), hex($("c1").value), hex($("c2").value)));
+    name = ([...lines[0].replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("").slice(0, 24) || "book") + "-book.gif";
   } else if (mode === "fishing") {
     lines = getLines();
     if (!lines.length) return;
