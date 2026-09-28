@@ -33,7 +33,6 @@
 <header>
   <h1>Attack Planner</h1>
   <a class="btn secondary" href="index.html">Shadow GIFs</a>
-  <a class="btn secondary" href="replay.html">Attack Replay</a>
   <nav id="mobs"></nav>
 </header>
 <div class="bar">
@@ -42,6 +41,7 @@
   <button id="undo" type="button" class="secondary" disabled>Undo</button>
   <button id="clear" type="button" class="secondary" disabled>Clear</button>
   <button id="download" type="button" disabled>Download</button>
+  <button id="copy" type="button" disabled>Copy</button>
   <span id="housing">Housing: 0</span>
 </div>
 <main>
@@ -49,11 +49,48 @@
   <canvas id="c" hidden></canvas>
 </main>
 <script src="icons.js?v=5"></script>
+<script src="font.js?v=1"></script>
 <script>
 const MOBS = { zombie: 1, skeleton: 1, iron_golem: 5, creeper: 2, chicken: 5, enderman: 1, witch: 4, allay: 5 };  // housing space
 const $ = id => document.getElementById(id), c = $("c"), ctx = c.getContext("2d");
 const icons = {};
 let bg = null, heads = [], mob = "zombie", drag = null;
+
+// MC font glyph masks from ascii.png, for the stats strip under the image
+const glyphs = {}, font = new Image();
+font.onload = () => {
+  const t = document.createElement("canvas");
+  t.width = font.width; t.height = font.height;
+  const tc = t.getContext("2d");
+  tc.drawImage(font, 0, 0);
+  const d = tc.getImageData(0, 0, font.width, font.height).data;
+  const cw = font.width / [...CHARS[0]].length, ch = font.height / CHARS.length;
+  CHARS.forEach((line, row) => [...line].forEach((ch_, col) => {
+    const mask = [];
+    let w = 0;
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++)
+      if (d[((row * ch + y) * font.width + col * cw + x) * 4 + 3]) { mask.push([x, y]); w = Math.max(w, x + 1); }
+    glyphs[ch_] = { w, mask };
+  }));
+  glyphs[" "] = { w: 3, mask: [] };
+  draw();
+};
+font.src = FONT_PNG;
+const glyph = ch => glyphs[ch] || glyphs["?"];
+const textW = s => [...s].reduce((w, ch) => w + glyph(ch).w + 1, 0);
+function text(s, x, y, px, color, shadow) {  // MC text with its drop shadow (colour / 4, 1 px down-right); returns end x
+  for (const [col, o] of [[shadow, px], [color, 0]]) {
+    let cx = x;
+    ctx.fillStyle = col;
+    for (const ch of s) {
+      for (const [gx, gy] of glyph(ch).mask) ctx.fillRect(cx + gx * px + o, y + gy * px + o, px, px);
+      cx += (glyph(ch).w + 1) * px;
+    }
+  }
+  return x + textW(s) * px;
+}
+const stripH = () => Math.round(14 * px());  // 14 MC px: 10 px heads + margins
+const px = () => Math.max(2, Math.round(bg.width / 320));
 
 for (const [name, space] of Object.entries(MOBS)) {
   const img = icons[name] = new Image();
@@ -88,6 +125,19 @@ function draw() {
   const count = {};
   for (const h of heads) count[h.mob] = (count[h.mob] || 0) + 1;
   const total = heads.reduce((s, h) => s + MOBS[h.mob], 0);
+  // stats strip under the image (part of the downloaded/copied PNG): head + count per mob, then totals
+  const p = px(), y0 = bg.height;
+  ctx.fillStyle = "#1b1720";
+  ctx.fillRect(0, y0, c.width, stripH());
+  if (glyphs["?"]) {
+    let x = 4 * p;
+    for (const m of Object.keys(MOBS).filter(m => count[m])) {
+      const img = icons[m], k = 10 * p / Math.max(img.width, img.height);
+      ctx.drawImage(img, x, y0 + 2 * p + (10 * p - img.height * k) / 2, img.width * k, img.height * k);
+      x = text(`${count[m]}x`, x + img.width * k + 2 * p, y0 + 3 * p, p, "#fff", "#3f3f3f") + 6 * p;
+    }
+    text(`Units: ${heads.length}  Housing: ${total}`, x, y0 + 3 * p, p, "#ffff55", "#3f3f15");
+  }
   $("housing").textContent = `Housing: ${total}` + (heads.length ? "  (" + Object.entries(count).map(([m, n]) => `${n}× ${m.replace("_", " ")}`).join(", ") + ")" : "");
   $("undo").disabled = $("clear").disabled = !heads.length;
 }
@@ -97,8 +147,8 @@ function load(file) {
   const img = new Image();
   img.onload = () => {
     bg = img; heads = [];
-    c.width = img.width; c.height = img.height;
-    c.hidden = false; $("drop").hidden = true; $("download").disabled = false;
+    c.width = img.width; c.height = img.height + stripH();
+    c.hidden = false; $("drop").hidden = true; $("download").disabled = $("copy").disabled = false;
     URL.revokeObjectURL(img.src);
     draw();
   };
@@ -123,7 +173,7 @@ c.addEventListener("pointerdown", e => {
     heads.push(h);  // bring to front
     drag = { h, dx: h.x - p.x, dy: h.y - p.y };
   } else {
-    heads.push({ mob, ...p });
+    if (p.y < bg.height) heads.push({ mob, ...p });
   }
   c.setPointerCapture(e.pointerId);
   draw();
@@ -131,7 +181,7 @@ c.addEventListener("pointerdown", e => {
 c.addEventListener("pointermove", e => {
   if (!drag) return;
   const p = at(e);
-  drag.h.x = p.x + drag.dx; drag.h.y = p.y + drag.dy;
+  drag.h.x = p.x + drag.dx; drag.h.y = Math.min(bg.height, p.y + drag.dy);
   draw();
 });
 c.addEventListener("pointerup", () => drag = null);
@@ -148,6 +198,11 @@ $("download").onclick = () => c.toBlob(blob => {
   a.href = URL.createObjectURL(blob); a.download = "attack-plan.png"; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }, "image/png");
+$("copy").onclick = async () => {  // Promise<Blob> keeps the click activation
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": new Promise(res => c.toBlob(res, "image/png")) })]);
+  $("copy").textContent = "Copied!";
+  setTimeout(() => $("copy").textContent = "Copy", 1200);
+};
 </script>
 </body>
 </html>
