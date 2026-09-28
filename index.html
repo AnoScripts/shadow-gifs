@@ -41,7 +41,7 @@
 </head>
 <body>
   <header><h1>Shadow GIFs</h1>
-  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="moving" aria-pressed="false">Moving</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button><button type="button" data-mode="sign" aria-pressed="false">Sign</button></nav></header>
+  <nav id="tabs"><button type="button" data-mode="button" aria-pressed="true">Button</button><button type="button" data-mode="moving" aria-pressed="false">Moving</button><button type="button" data-mode="banner" aria-pressed="false">Banner</button><button type="button" data-mode="sign" aria-pressed="false">Sign</button><button type="button" data-mode="fishing" aria-pressed="false">Fishing</button></nav><a class="btn" href="planner.html" style="background:#3a3144">Attack Planner</a></header>
 <main data-mode="button">
   <div>
   <textarea id="cmd" data-only="banner" placeholder="Paste a /give command for a banner">give @p minecraft:black_banner[banner_patterns=[{"pattern":"minecraft:stripe_right","color":"black"},{"pattern":"minecraft:stripe_downleft","color":"red"},{"pattern":"minecraft:gradient","color":"black"},{"pattern":"minecraft:bricks","color":"black"},{"pattern":"minecraft:straight_cross","color":"magenta"},{"pattern":"minecraft:skull","color":"purple"},{"pattern":"minecraft:stripe_downright","color":"red"},{"pattern":"minecraft:stripe_bottom","color":"black"},{"pattern":"minecraft:stripe_center","color":"black"},{"pattern":"minecraft:creeper","color":"black"},{"pattern":"minecraft:triangle_top","color":"black"},{"pattern":"minecraft:square_bottom_left","color":"black"},{"pattern":"minecraft:square_top_left","color":"black"}]]</textarea>
@@ -67,15 +67,15 @@
     <label data-only="banner">Sway (°) <input id="sway" type="number" min="0" max="45" value="8"></label>
     <label>Outline opacity <input id="outline" type="range" min="0" max="1" step="0.05" value="0.1"> <output id="outlineVal">0.1</output></label>
   </fieldset>
-  <textarea id="texts" data-only="button moving" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
-  <fieldset data-only="button moving sign">
+  <textarea id="texts" data-only="button moving fishing" placeholder="Text (multiple lines make one taller button)">:enderman: Enderman in Paris :chorus_fruit:&#10;🔥 Shadow Gang 💜</textarea>
+  <fieldset data-only="button moving sign fishing">
     <legend>Size</legend>
-    <label data-only="button moving">Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
+    <label data-only="button moving fishing">Scale <input id="scale" type="number" min="1" max="8" value="2"></label>
     <label data-only="button moving">Width (MC px, 0 = auto) <input id="width" type="number" min="0" value="0"></label>
     <button id="fit" type="button" class="secondary" data-only="button moving">Fit to text</button>
     <label>Icon size <input id="isize" type="number" min="4" max="18" value="12"></label>
   </fieldset>
-  <fieldset id="colors" data-only="button moving sign">
+  <fieldset id="colors" data-only="button moving sign fishing">
     <legend>Colors</legend>
     <label>Color 1 <input id="c1" type="color" value="#865cff"></label>
     <label>Color 2 <input id="c2" type="color" value="#ff5cd6"></label>
@@ -85,14 +85,14 @@
   <fieldset>
     <legend>Motion</legend>
     <label>Speed (ms/frame) <input id="ms" type="number" min="20" max="200" step="10" value="60"></label>
-    <label data-only="button moving">Wave (px) <input id="wave" type="number" min="0" max="2" value="1"></label>
-    <label data-only="button moving"><input id="shadow" type="checkbox" checked> Text shadow</label>
+    <label data-only="button moving fishing">Wave (px) <input id="wave" type="number" min="0" max="2" value="1"></label>
+    <label data-only="button moving fishing"><input id="shadow" type="checkbox" checked> Text shadow</label>
   </fieldset>
   <div id="out"></div>
   </div>
-  <div id="icons" data-only="button moving sign"></div>
+  <div id="icons" data-only="button moving sign fishing"></div>
 </main>
-<script src="icons.js?v=3"></script>
+<script src="icons.js?v=5"></script>
 <script type="module">
 import { GIFEncoder, quantize, applyPalette } from "https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.esm.js";
 
@@ -434,6 +434,83 @@ function makeSignGif(lines, c1, c2) {
   return makeCardGif((f, a) => signCard(rows, bopt.typewriter ? f : total, a, c1, c2), n);
 }
 
+// --- fishing: the text is the catch. Bobber idles, bites, text is reeled out of animated MC water, hangs, drops back ---
+const FTEX = Object.fromEntries(await Promise.all(Object.entries(window.FISHING).map(async ([n, src]) => [n, await pixels(src)])));
+const WATER = [63, 118, 228], DROP = [220, 235, 255];
+const LINE = [160, 160, 160];  // ponytail: light grey so it reads on Discord dark; in game it's black
+const FN = 64;  // 0-23 idle, 24-31 bite, 32-43 reel in, 44-55 hang, 56-63 drop back; water_still is 32 frames, so it loops
+const SPRAY = [[-2.2, 2.2], [-1.2, 3.2], [-0.4, 3.8], [0.4, 3.6], [1.3, 3], [2.1, 2.4]];  // droplet [vx, vy] in px/frame
+const ease = p => (1 - Math.cos(Math.PI * p)) / 2;
+function fishingCard(rows, f, c1, c2, k) {
+  const P = pitch(rows), th = 8 + (rows.length - 1) * P, tw = Math.max(...rows.map(rowW));
+  const w = Math.max(tw + 20, 72), top = 12, surf = top + th + 8, h = surf + th + 6, cx = w >> 1, under = surf + 3;
+  const rgba = new Uint8ClampedArray(w * h * 4);
+  // al only blends over something already drawn (water over text); on empty background everything is opaque
+  const put = (x, y, c, al = 1) => {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || x >= w || y < 0 || y >= h) return;
+    const i = (y * w + x) * 4, b = rgba[i + 3] ? al : 1;
+    for (let j = 0; j < 3; j++) rgba[i + j] += (c[j] - rgba[i + j]) * b;
+    rgba[i + 3] = 255;
+  };
+  const sprite = (img, x0, y0) => {
+    for (let y = 0; y < img.height; y++) for (let x = 0; x < img.width; x++) {
+      const i = (y * img.width + x) * 4;
+      if (img.data[i + 3]) put(x0 + x, y0 + y, img.data.subarray(i, i + 3));
+    }
+  };
+  // text top per frame (null = not caught yet)
+  const tyAt = f => f < 32 ? null : f < 44 ? Math.round(under + (top - under) * ease((f - 32) / 11))
+    : f < 56 ? top : Math.round(top + (under + 4 - top) * ((f - 56) / 7) ** 2);
+  const ty = tyAt(f);
+  // bobber texture top: float is rows 1-3, row 2 sits on the surface; once caught the hook sits on the text
+  const by = ty !== null ? ty - 7 : f < 4 ? surf + 2 - f : f < 24 ? surf - 2 + ((f >> 2) & 1) : surf - 2 + [1, 2, 4, 5, 5, 4, 5, 5][f - 24];
+  if (ty !== null) rows.forEach((chars, r) => {
+    let x0 = cx - (rowW(chars) >> 1);
+    const y0 = ty + r * P;
+    chars.forEach((c, i) => {
+      const dy = Math.round(wave * Math.sin(2 * Math.PI * (f / 16 - i / 8)));
+      if (c.icon) {
+        const { w: iw, h: ih, data } = c.icon, iy = y0 + Math.floor((8 - ih) / 2) + dy;
+        for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) {
+          const si = (y * iw + x) * 4;
+          if (data[si + 3]) put(x0 + x, iy + y, data.subarray(si, si + 3), data[si + 3] / 255);
+        }
+        x0 += iw + 1;
+        return;
+      }
+      const g = glyph(c), col = grad(mod1(i / Math.max(chars.length, 1) - f / 32), c1, c2);
+      if (shadow) g.mask.forEach(([gx, gy]) => put(x0 + gx + 1, y0 + gy + dy + 1, col.map(v => Math.floor(v / 4))));
+      g.mask.forEach(([gx, gy]) => put(x0 + gx, y0 + gy + dy, col));
+      x0 += g.w + 1;
+    });
+  });
+  sprite(FTEX.rod, 0, 0);
+  sprite(FTEX.hook, cx - 4, by);
+  const n = Math.max(Math.abs(cx - 13), Math.abs(by - 1));  // line: rod tip (13,1) -> top of the float
+  for (let s = 0; s <= n; s++) put(13 + (cx - 13) * s / n, 1 + (by - 1) * s / n, LINE);
+  const wf = (f % 32) * 16;
+  for (let y = surf; y < h; y++) for (let x = 0; x < w; x++) {
+    const g = FTEX.water.data[((wf + (y - surf) % 16) * 16 + x % 16) * 4] / 255;
+    put(x, y, WATER.map(v => y === surf ? v * g + (255 - v * g) * 0.35 : v * g), 0.65);
+  }
+  // splashes: bite, text breaking the surface, text falling back in
+  const splash = (x0, t0) => {
+    const dt = (f - t0 + FN) % FN;
+    if (dt <= 6) SPRAY.forEach(([vx, vy]) => { const y = surf - vy * dt + 0.6 * dt * dt; if (y < surf) put(x0 + vx * dt, y, DROP); });
+  };
+  const out = [...Array(12).keys()].map(i => 32 + i).find(f => tyAt(f) < surf);
+  const inn = [...Array(8).keys()].map(i => 56 + i).find(f => tyAt(f) + th >= surf);
+  splash(cx, 26);
+  for (let x = cx - (tw >> 1); x <= cx + (tw >> 1); x += 10) { splash(x, out); splash(x, inn); }
+  return { w, h, rgba, k, pivot: 0 };
+}
+function makeFishingGif(lines, scale, c1, c2) {
+  Object.assign(bopt, { yaw: 0, sway: 0, spin: false, outline: 0 });  // flat 2D scene
+  const rows = lines.map(tokenize);
+  return makeCardGif(f => fishingCard(rows, f, c1, c2, scale), FN);
+}
+
 // --- UI ---
 const $ = id => document.getElementById(id);
 let made = null;
@@ -546,6 +623,11 @@ async function render() {
     const out = await makeSignGif(lines, hex($("c1").value), hex($("c2").value));
     made = URL.createObjectURL(out);
     name = `${bopt.wood}_${bopt.type}_sign.${out.type === "image/png" ? "png" : "gif"}`;
+  } else if (mode === "fishing") {
+    lines = getLines();
+    if (!lines.length) return;
+    made = URL.createObjectURL(makeFishingGif(lines, clamp("scale", 1, 8, 2), hex($("c1").value), hex($("c2").value)));
+    name = ([...lines.join(" ").replace(/:[a-z_]+:/g, "")].filter(c => /[\p{L}\p{N}]/u.test(c)).join("") || "catch") + "-fishing.gif";
   } else {
     lines = getLines();
     if (!lines.length) return;
