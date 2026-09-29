@@ -73,8 +73,15 @@
 const MOBS = { zombie: 1, skeleton: 1, iron_golem: 5, creeper: 2, chicken: 5, enderman: 1, witch: 4, allay: 14 };  // housing space
 const $ = id => document.getElementById(id), c = $("c"), ctx = c.getContext("2d");
 // CCNotify's K key opens this page with the base's size in the hash, so plan pixels can go back to blocks
-const geo = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
-const planned = () => geo.ppb > 0 && bg && bg.width === geo.w * geo.ppb;
+const hash = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+/**
+ * Blocks per pixel and the base's size. CCNotify's K key puts them in the hash, but any image it rendered is
+ * 2 px a block, so a plain Ctrl+V without the hash still gives a usable plan code.
+ */
+function geo() {
+  const ppb = +hash.ppb || 2;
+  return { ppb, w: +hash.w || Math.round(bg.width / ppb), h: +hash.h || Math.round(bg.height / ppb) };
+}
 const icons = {};
 let bg = null, heads = [], mob = "zombie", drag = null, hover = null;
 
@@ -238,7 +245,7 @@ function load(file) {
     bg = img; heads = [];
     c.width = img.width; c.height = img.height;  // draw() adds the stats strip
     c.hidden = false; $("drop").hidden = true; $("download").disabled = $("copy").disabled = false;
-    $("code").hidden = !planned();  // only a base that came from the mod can be turned back into blocks
+    $("code").hidden = false;
     URL.revokeObjectURL(img.src);
     draw();
   };
@@ -292,8 +299,8 @@ $("download").onclick = () => c.toBlob(blob => {
 }, "image/png");
 // the code CCNotify reads: "w,h;mob,x,z;..." in blocks from the base's north-west corner, deflated and base64url'd
 $("code").onclick = async () => {
-  const ppb = +geo.ppb;
-  const text = [`${geo.w},${geo.h}`,
+  const { ppb, w, h } = geo();
+  const text = [`${w},${h}`,
     ...heads.map(h => `${h.mob},${Math.round(h.x / ppb)},${Math.round(h.y / ppb)}`)].join(";");
   const packed = new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("deflate-raw")));
   const bytes = new Uint8Array(await packed.arrayBuffer());
