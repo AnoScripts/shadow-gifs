@@ -240,19 +240,29 @@ function draw() {
 
 function load(file) {
   if (!file?.type.startsWith("image/")) return;
+  loadSrc(URL.createObjectURL(file), true);
+}
+
+/** Any image source: an object URL from a dropped file, or the data: URL CCNotify's K key puts on the clipboard. */
+function loadSrc(src, revoke) {
   const img = new Image();
   img.onload = () => {
     bg = img; heads = [];
     c.width = img.width; c.height = img.height;  // draw() adds the stats strip
     c.hidden = false; $("drop").hidden = true; $("download").disabled = $("copy").disabled = false;
     $("code").hidden = false;
-    URL.revokeObjectURL(img.src);
+    if (revoke) URL.revokeObjectURL(img.src);
     draw();
   };
-  img.src = URL.createObjectURL(file);
+  img.src = src;
 }
 $("file").onchange = e => load(e.target.files[0]);
-document.addEventListener("paste", e => load([...e.clipboardData.files][0]));
+document.addEventListener("paste", e => {
+  const text = e.clipboardData.getData("text/plain");
+  // the mod can only put text on the clipboard (the game's clipboard is text-only), so its base arrives as a data URL
+  if (text.startsWith("data:image/")) loadSrc(text.trim(), false);
+  else load([...e.clipboardData.files][0]);
+});
 for (const el of [$("drop"), c]) {
   el.addEventListener("dragover", e => { e.preventDefault(); $("drop").classList.add("over"); });
   el.addEventListener("dragleave", () => $("drop").classList.remove("over"));
