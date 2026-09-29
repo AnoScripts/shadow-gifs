@@ -14,14 +14,19 @@
   button, a.btn, label.btn { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font:inherit; cursor:pointer; text-decoration:none; }
   .secondary { background:#3a3144 !important; }
   button:disabled { opacity:.4; cursor:default; }
-  #mobs { display:flex; flex-wrap:wrap; gap:6px; }
-  #mobs button { display:flex; align-items:center; gap:6px; background:var(--panel); border:2px solid #3a3144; padding:4px 10px 4px 4px; }
-  #mobs button[aria-pressed=true] { border-color:var(--accent); background:#3a2a4d; }
-  #mobs img { height:32px; image-rendering:pixelated; }
-  #mobs small { color:var(--muted); }
+  #side { position:sticky; top:64px; align-self:start; width:200px; flex:0 0 200px; display:flex; flex-direction:column; gap:6px; }
+  #side h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:8px 0 2px; }
+  #side button { display:flex; align-items:center; gap:6px; background:var(--panel); border:2px solid #3a3144; padding:4px 10px 4px 4px; width:100%; }
+  #side button[aria-pressed=true] { border-color:var(--accent); background:#3a2a4d; }
+  #side img { height:32px; image-rendering:pixelated; }
+  #side small { color:var(--muted); margin-left:auto; }
+  #side .emoji { font-size:26px; width:32px; text-align:center; }
+  #side label { color:var(--muted); font-size:13px; margin-top:8px; border-top:1px solid #3a3144; padding-top:10px; }
+  #side input[type=range] { width:100%; }
   .bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:10px 16px; color:var(--muted); }
   #housing { color:var(--text); }
-  main { padding:0 16px 24px; }
+  main { padding:0 16px 24px; display:flex; gap:16px; align-items:flex-start; }
+  #stage { flex:1; min-width:0; }
   #drop { border:2px dashed #3a3144; border-radius:8px; min-height:60vh; display:grid; place-items:center; color:var(--muted); text-align:center; padding:16px; }
   #drop.over { border-color:var(--accent); }
   canvas { display:block; max-width:100%; max-height:calc(100vh - 130px); margin:0 auto; cursor:crosshair; touch-action:none; }
@@ -34,7 +39,6 @@
   <h1>Attack Planner</h1>
   <a class="btn secondary" href="index.html">Shadow GIFs</a>
   <a class="btn secondary" href="replay.html">Attack Replay</a>
-  <nav id="mobs"></nav>
 </header>
 <div class="bar">
   <label class="btn">Upload image<input id="file" type="file" accept="image/*"></label>
@@ -46,16 +50,29 @@
   <span id="housing">Housing: 0</span>
 </div>
 <main>
-  <div id="drop">Upload, drop or paste (Ctrl+V) a screenshot of the base.<br>Pick a mob above, then click on the image to place it. Drag a head to move it, right-click to remove it.</div>
-  <canvas id="c" hidden></canvas>
+  <aside id="side">
+    <h2>Troops</h2>
+    <nav id="mobs"></nav>
+    <h2>Spells</h2>
+    <nav id="spells">
+      <button type="button" data-mob="heal"><span class="emoji">💛</span><span>heal</span></button>
+    </nav>
+    <label>Heal radius <output id="healVal">25</output>px
+      <input id="heal" type="range" min="5" max="200" step="1" value="25">
+    </label>
+  </aside>
+  <div id="stage">
+    <div id="drop">Upload, drop or paste (Ctrl+V) a screenshot of the base.<br>Pick a troop or spell on the left, then click on the image to place it. Drag it to move it, right-click to remove it.</div>
+    <canvas id="c" hidden></canvas>
+  </div>
 </main>
 <script src="icons.js?v=5"></script>
 <script src="font.js?v=1"></script>
 <script>
-const MOBS = { zombie: 1, skeleton: 1, iron_golem: 5, creeper: 2, chicken: 5, enderman: 1, witch: 4, allay: 5 };  // housing space
+const MOBS = { zombie: 1, skeleton: 1, iron_golem: 5, creeper: 2, chicken: 5, enderman: 1, witch: 4, allay: 14 };  // housing space
 const $ = id => document.getElementById(id), c = $("c"), ctx = c.getContext("2d");
 const icons = {};
-let bg = null, heads = [], mob = "zombie", drag = null;
+let bg = null, heads = [], mob = "zombie", drag = null, hover = null;
 
 // MC font glyph masks from ascii.png, for the stats strip under the image
 const glyphs = {}, font = new Image();
@@ -102,20 +119,41 @@ for (const [name, space] of Object.entries(MOBS)) {
   b.onclick = () => { mob = name; pressed(); };
   $("mobs").append(b);
 }
-const pressed = () => document.querySelectorAll("#mobs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.mob === mob));
+const pressed = () => document.querySelectorAll("#side button[data-mob]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mob === mob));
+document.querySelector("#spells button").onclick = () => { mob = "heal"; pressed(); };
 pressed();
 
+const isSpell = h => h.mob === "heal";
 // head box in image px: size is the longer side, as a % of the image width
 function box(h) {
+  if (isSpell(h)) { const r = +$("heal").value; return { x: h.x - r, y: h.y - r, w: 2 * r, h: 2 * r }; }
   const img = icons[h.mob], s = bg.width * $("size").value / 100, k = s / Math.max(img.width, img.height);
   const w = img.width * k, hh = img.height * k;
   return { x: h.x - w / 2, y: h.y - hh / 2, w, h: hh };
 }
+function paint(h) {
+  const b = box(h);
+  if (isSpell(h)) {
+    const r = b.w / 2;
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, r, 0, 2 * Math.PI);
+    ctx.fillStyle = "rgba(255,226,70,.22)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,226,70,.55)";
+    ctx.lineWidth = Math.max(1, r / 25);
+    ctx.stroke();
+    return;
+  }
+  const o = Math.max(1, b.w / 16);
+  ctx.fillStyle = "#000";  // thin dark frame so heads read on any background
+  ctx.fillRect(b.x - o, b.y - o, b.w + 2 * o, b.h + 2 * o);
+  ctx.drawImage(icons[h.mob], b.x, b.y, b.w, b.h);
+}
 function draw() {
   if (!bg) return;
-  const count = {};
-  for (const h of heads) count[h.mob] = (count[h.mob] || 0) + 1;
-  const total = heads.reduce((s, h) => s + MOBS[h.mob], 0);
+  const count = {}, troops = heads.filter(h => !isSpell(h));
+  for (const h of troops) count[h.mob] = (count[h.mob] || 0) + 1;
+  const total = troops.reduce((s, h) => s + MOBS[h.mob], 0);
   // stats strip items (head + count per mob, then totals), wrapped into rows that fit the image width
   const p = px(), items = [];
   if (glyphs["?"]) {
@@ -123,7 +161,7 @@ function draw() {
       const img = icons[m], k = 10 * p / Math.max(img.width, img.height), s = `${count[m]}x`;
       items.push({ img, k, s, w: img.width * k + 2 * p + textW(s) * p, color: "#fff", shadow: "#3f3f3f" });
     }
-    const s = `Units: ${heads.length}  Housing: ${total}`;
+    const s = `Units: ${troops.length}  Housing: ${total}`;
     items.push({ s, w: textW(s) * p, color: "#ffff55", shadow: "#3f3f15" });
   }
   const rows = [[]];
@@ -132,16 +170,22 @@ function draw() {
     if (rows.at(-1).length && rw + it.w > c.width - 4 * p) { rows.push([]); rw = 4 * p; }
     rows.at(-1).push(it); rw += it.w + 6 * p;
   }
+  const spells = heads.length - troops.length;  // spells get their own row under the troops
+  if (spells && glyphs["?"]) {
+    const s = `${spells}x heal`;
+    rows.push([{ emoji: "💛", s, w: 12 * p + textW(s) * p, color: "#ffff55", shadow: "#3f3f15" }]);
+  }
   const h = bg.height + (2 + 12 * rows.length) * p;  // 12 MC px per row: 10 px heads + gap
   if (c.height !== h) c.height = h;  // resizing clears the canvas; everything is redrawn below
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(bg, 0, 0);
   ctx.imageSmoothingEnabled = false;  // crisp MC pixels
-  for (const h of heads) {
-    const b = box(h), o = Math.max(1, b.w / 16);
-    ctx.fillStyle = "#000";  // thin dark frame so heads read on any background
-    ctx.fillRect(b.x - o, b.y - o, b.w + 2 * o, b.h + 2 * o);
-    ctx.drawImage(icons[h.mob], b.x, b.y, b.w, b.h);
+  heads.filter(isSpell).forEach(paint);  // spells under the heads
+  troops.forEach(paint);
+  if (hover && !drag && hover.y < bg.height) {  // ghost of what the next click places
+    ctx.globalAlpha = .5;
+    paint({ mob, ...hover });
+    ctx.globalAlpha = 1;
   }
   // stats strip under the image (part of the downloaded/copied PNG)
   ctx.fillStyle = "#1b1720";
@@ -151,7 +195,13 @@ function draw() {
     let x = 4 * p;
     for (const it of row) {
       if (it.img) ctx.drawImage(it.img, x, y + (10 * p - it.img.height * it.k) / 2, it.img.width * it.k, it.img.height * it.k);
-      text(it.s, x + (it.img ? it.img.width * it.k + 2 * p : 0), y + p, p, it.color, it.shadow);
+      if (it.emoji) {
+        ctx.font = `${10 * p}px sans-serif`;
+        ctx.textBaseline = "top";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(it.emoji, x, y);
+      }
+      text(it.s, x + (it.img ? it.img.width * it.k + 2 * p : it.emoji ? 12 * p : 0), y + p, p, it.color, it.shadow);
       x += it.w + 6 * p;
     }
   });
@@ -196,18 +246,20 @@ c.addEventListener("pointerdown", e => {
   draw();
 });
 c.addEventListener("pointermove", e => {
-  if (!drag) return;
   const p = at(e);
-  drag.h.x = p.x + drag.dx; drag.h.y = Math.min(bg.height, p.y + drag.dy);
+  hover = p;
+  if (drag) { drag.h.x = p.x + drag.dx; drag.h.y = Math.min(bg.height, p.y + drag.dy); }
   draw();
 });
-c.addEventListener("pointerup", () => drag = null);
+c.addEventListener("pointerleave", () => { hover = null; draw(); });
+c.addEventListener("pointerup", () => { drag = null; draw(); });
 c.addEventListener("contextmenu", e => {
   e.preventDefault();
   const i = hit(at(e));
   if (i >= 0) { heads.splice(i, 1); draw(); }
 });
 $("size").oninput = () => { $("sizeVal").value = $("size").value; draw(); };
+$("heal").oninput = () => { $("healVal").value = $("heal").value; draw(); };
 $("undo").onclick = () => { heads.pop(); draw(); };
 $("clear").onclick = () => { heads = []; draw(); };
 $("download").onclick = () => c.toBlob(blob => {
