@@ -94,6 +94,14 @@ def main():
             face.alpha_composite(img.crop((ox, oy, ox + ow, oy + oh)), (dx, dy))
         k = 2 if h <= 10 else 16 / h  # 8px face -> 16px; big/hi-res faces down to 16
         out["Mobs"][n] = url(face.resize((round(w * k), round(h * k)), Image.NEAREST))
+    # the witch wears her hat: the front faces of the 4 hat boxes stacked on top of her face
+    w_img = png("entity/witch/witch")
+    # 8 wide like every other face (the 10-wide brim loses a pixel a side), so she draws no wider than the rest
+    hat = Image.new("RGBA", (8, 22))
+    for (hx, hy, hw, hh), (dx, dy) in [((1, 96, 1, 2), (3, 0)), ((4, 91, 4, 4), (2, 2)), ((7, 83, 7, 4), (0, 6)),
+                                       ((11, 74, 8, 2), (0, 10)), ((8, 8, 8, 10), (0, 12))]:
+        hat.alpha_composite(w_img.crop((hx, hy, hx + hw, hy + hh)), (dx, dy))
+    out["Mobs"]["witch"] = url(hat.resize((16, 44), Image.NEAREST))
     for cat, names in ITEMS.items():
         out[cat] = {n.removesuffix("_00").removesuffix("_standby"): url(png("item/" + n)) for n in names}
     # hearts are 9px HUD sprites: 2x -> 18, close enough to 16

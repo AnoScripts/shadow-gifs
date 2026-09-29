@@ -46,18 +46,48 @@
   <span id="time"></span>
   <label>Speed <select id="speed"><option>0.25</option><option>0.5</option><option selected>1</option><option>2</option><option>4</option><option>8</option></select>×</label>
   <label><input id="smooth" type="checkbox" checked> Smooth</label>
+  <label><input id="paths" type="checkbox" checked> Paths</label>
+  <label><input id="defenders" type="checkbox" checked> Defenders</label>
+  <label><input id="placements" type="checkbox" checked> Placements</label>
   <span id="stats"></span>
 </div>
 <main>
   <div id="drop">Drop an <b>attack-replay-….json</b> here, or use “Open replay”.<br>CCNotify saves one into Downloads after every attack.</div>
   <canvas id="c" hidden></canvas>
 </main>
-<script src="icons.js?v=5"></script>
+<script src="icons.js?v=6"></script>
 <script>
 const PX = 2;  // canvas px per block, like the GIF: heads are drawn at their own size (16 px face = 8 blocks)
 const $ = id => document.getElementById(id), c = $("c"), ctx = c.getContext("2d");
 const faces = {};
 let R = null, mapCanvas = null, mapFrame = -1, t = 0, playing = false, last = 0;
+
+// one colour per mob type, straight off its name
+const hue = mob => [...mob].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7);
+const color = (mob, a = 1) => `hsl(${hue(mob)} 90% 62% / ${a})`;
+
+/**
+ * Everything each troop did, off the frames: where it was put down (and in which order), every spot it was seen at,
+ * and the frame it was gone. Gone = its last sighting is not the last frame and it never came back; one that only
+ * ghosts out (out of the server's range) has no death - nothing tells us it died.
+ */
+function tracks(r) {
+  const by = new Map();
+  r.frames.forEach((frame, f) => {
+    for (const [id, mob, x, z, ghost, enemy] of frame) {
+      if (enemy) continue;  // paths and placement order are about your own troops
+      let tr = by.get(id);
+      if (!tr) by.set(id, tr = { id, mob, first: f, pts: [] });
+      if (!ghost) { tr.pts.push([f, x, z]); tr.lastSeen = f; }
+    }
+  });
+  const list = [...by.values()].sort((a, b) => a.first - b.first);
+  list.forEach((tr, i) => {
+    tr.order = i + 1;  // placement order: first frame it showed up in
+    tr.death = tr.lastSeen < r.frames.length - 1 ? tr.lastSeen + 1 : null;
+  });
+  return list;
+}
 
 function face(mob) {
   if (!faces[mob]) {
@@ -79,6 +109,7 @@ function load(file) {
     for (let i = 0; i < r.width * r.height; i++) {
       R.base.data.set([bytes[i * 3], bytes[i * 3 + 1], bytes[i * 3 + 2], 255], i * 4);
     }
+    R.tracks = tracks(r);
     mapCanvas = new OffscreenCanvas(r.width, r.height);
     mapFrame = -1;
     c.width = r.width * PX; c.height = r.height * PX;
@@ -111,20 +142,76 @@ function draw() {
   mapAt(f);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(mapCanvas, 0, 0, c.width, c.height);
+  const healFrames = (R.healMs ?? 5000) / R.sampleMs;  // a heal is up for healMs, then it's gone
+  for (const [frame, x, z] of R.spells ?? []) {  // the planner's yellow disc
+    if (frame > f || f >= frame + healFrames) continue;
+    const r = (R.healRadius ?? 7) * PX;
+    ctx.beginPath();
+    ctx.arc(x * PX, z * PX, r, 0, 2 * Math.PI);
+    ctx.fillStyle = "rgba(255,226,70,.22)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,226,70,.55)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  if ($("paths").checked) {  // where each troop has walked so far, its own colour per mob type
+    ctx.lineWidth = 1;
+    ctx.lineJoin = ctx.lineCap = "round";
+    for (const tr of R.tracks) {
+      const pts = tr.pts.filter(p => p[0] <= f);
+      if (pts.length < 2) continue;
+      ctx.strokeStyle = color(tr.mob, .85);
+      ctx.beginPath();
+      pts.forEach(([, x, z], i) => ctx[i ? "lineTo" : "moveTo"](x * PX, z * PX));
+      ctx.stroke();
+    }
+    for (const tr of R.tracks) {  // a bold X where it died
+      if (tr.death === null || f < tr.death) continue;
+      const [, x, z] = tr.pts.at(-1), px = x * PX, pz = z * PX, d = 3;
+      ctx.strokeStyle = color(tr.mob);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(px - d, pz - d); ctx.lineTo(px + d, pz + d);
+      ctx.moveTo(px + d, pz - d); ctx.lineTo(px - d, pz + d);
+      ctx.stroke();
+    }
+  }
+  if ($("placements").checked) {  // where every troop was put down, numbered in the order they went in
+    ctx.font = "bold 9px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#000";
+    for (const tr of R.tracks) {
+      const [, x, z] = tr.pts[0];
+      ctx.strokeText(tr.order, x * PX, z * PX);
+      ctx.fillStyle = color(tr.mob);
+      ctx.fillText(tr.order, x * PX, z * PX);
+    }
+    ctx.textAlign = "start";
+  }
   // between two samples each troop slides from its spot to its next one (matched by entity id)
   const next = new Map();
   if ($("smooth").checked && k > 0 && f + 1 < R.frames.length) for (const tr of R.frames[f + 1]) next.set(tr[0], tr);
-  for (const [id, mob, x, z, ghost] of R.frames[f]) {
+  for (const [id, mob, x, z, ghost, enemy] of R.frames[f]) {
+    if (enemy && !$("defenders").checked) continue;  // the base's own guards (v2 files)
     const n = next.get(id), img = face(mob);
     if (!img.complete || !img.naturalWidth) continue;
     const px = (n ? x + (n[2] - x) * k : x) * PX, pz = (n ? z + (n[3] - z) * k : z) * PX;
+    if (enemy) {  // a red dot under the base's guards, so they don't read as your troops
+      ctx.fillStyle = "rgba(255,60,60,.55)";
+      ctx.beginPath();
+      ctx.arc(px, pz, 3, 0, 2 * Math.PI);
+      ctx.fill();
+    }
     ctx.globalAlpha = ghost ? 0.5 : 1;  // ghost = out of the server's range, at its last known spot
     ctx.drawImage(img, Math.round(px - img.naturalWidth / 2), Math.round(pz - img.naturalHeight / 2));
   }
   ctx.globalAlpha = 1;
   const s = R.sampleMs / 1000;
   $("seek").value = f;
-  $("time").textContent = `${(t * s).toFixed(1)}s / ${((R.frames.length - 1) * s).toFixed(1)}s · ${f + 1}/${R.frames.length} · ${R.frames[f].length} troops`;
+  $("time").textContent = `${(t * s).toFixed(1)}s / ${((R.frames.length - 1) * s).toFixed(1)}s · ${f + 1}/${R.frames.length} · ${R.frames[f].filter(tr => !tr[5]).length} troops` +
+    (R.spells?.length ? ` · ${R.spells.filter(sp => sp[0] <= f).length}/${R.spells.length} heals` : "");
   // what the raid sidebar showed at this frame; -1 = it wasn't showing that line yet
   const [dest, gold, amst] = R.stats?.[f] ?? [-1, -1, -1];
   const n = v => v < 0 ? "–" : v >= 1e6 ? (v / 1e6).toFixed(2).replace(/\.?0+$/, "") + "M"
@@ -155,7 +242,7 @@ $("play").onclick = () => setPlaying(!playing);
 $("prev").onclick = () => go(Math.ceil(t) - 1);
 $("next").onclick = () => go(Math.floor(t) + 1);
 $("seek").oninput = () => go(+$("seek").value);
-$("smooth").onchange = draw;
+$("smooth").onchange = $("paths").onchange = $("placements").onchange = $("defenders").onchange = draw;
 document.addEventListener("keydown", e => {
   if (!R || e.target.tagName === "SELECT") return;
   if (e.key === " ") { e.preventDefault(); setPlaying(!playing); }

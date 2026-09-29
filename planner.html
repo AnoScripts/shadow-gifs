@@ -19,8 +19,8 @@
   #side button { display:flex; align-items:center; gap:6px; background:var(--panel); border:2px solid #3a3144; padding:4px 10px 4px 4px; width:100%; }
   #side button[aria-pressed=true] { border-color:var(--accent); background:#3a2a4d; }
   #side img { height:32px; image-rendering:pixelated; }
-  #side small { color:var(--muted); margin-left:auto; }
   #side .emoji { font-size:26px; width:32px; text-align:center; }
+  #side small { color:var(--muted); margin-left:auto; }
   #side label { color:var(--muted); font-size:13px; margin-top:8px; border-top:1px solid #3a3144; padding-top:10px; }
   #side input[type=range] { width:100%; }
   .bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:10px 16px; color:var(--muted); }
@@ -47,6 +47,7 @@
   <button id="clear" type="button" class="secondary" disabled>Clear</button>
   <button id="download" type="button" disabled>Download</button>
   <button id="copy" type="button" disabled>Copy</button>
+  <button id="code" type="button" hidden title="The plan as a code for CCNotify's Settings tab">Copy plan code</button>
   <span id="housing">Housing: 0</span>
 </div>
 <main>
@@ -66,11 +67,14 @@
     <canvas id="c" hidden></canvas>
   </div>
 </main>
-<script src="icons.js?v=5"></script>
+<script src="icons.js?v=6"></script>
 <script src="font.js?v=1"></script>
 <script>
 const MOBS = { zombie: 1, skeleton: 1, iron_golem: 5, creeper: 2, chicken: 5, enderman: 1, witch: 4, allay: 14 };  // housing space
 const $ = id => document.getElementById(id), c = $("c"), ctx = c.getContext("2d");
+// CCNotify's K key opens this page with the base's size in the hash, so plan pixels can go back to blocks
+const geo = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+const planned = () => geo.ppb > 0 && bg && bg.width === geo.w * geo.ppb;
 const icons = {};
 let bg = null, heads = [], mob = "zombie", drag = null, hover = null;
 
@@ -131,6 +135,21 @@ function box(h) {
   const w = img.width * k, hh = img.height * k;
   return { x: h.x - w / 2, y: h.y - hh / 2, w, h: hh };
 }
+const sils = new Map();
+/** The head as a black shape, cached: stamped around a head it makes an outline that hugs it. */
+function silhouette(img) {
+  let sil = sils.get(img.src);
+  if (!sil) {
+    sil = new OffscreenCanvas(img.naturalWidth, img.naturalHeight);
+    const sc = sil.getContext("2d");
+    sc.drawImage(img, 0, 0);
+    sc.globalCompositeOperation = "source-in";
+    sc.fillStyle = "#000";
+    sc.fillRect(0, 0, sil.width, sil.height);
+    sils.set(img.src, sil);
+  }
+  return sil;
+}
 function paint(h) {
   const b = box(h);
   if (isSpell(h)) {
@@ -144,10 +163,13 @@ function paint(h) {
     ctx.stroke();
     return;
   }
-  const o = Math.max(1, b.w / 16);
-  ctx.fillStyle = "#000";  // thin dark frame so heads read on any background
-  ctx.fillRect(b.x - o, b.y - o, b.w + 2 * o, b.h + 2 * o);
-  ctx.drawImage(icons[h.mob], b.x, b.y, b.w, b.h);
+  const img = icons[h.mob], o = Math.max(1, b.w / 16);
+  // a dark outline that follows the head's shape - a plain rect behind it was a black slab around tall heads
+  const sil = silhouette(img);
+  for (const [dx, dy] of [[-o, 0], [o, 0], [0, -o], [0, o], [-o, -o], [o, -o], [-o, o], [o, o]]) {
+    ctx.drawImage(sil, b.x + dx, b.y + dy, b.w, b.h);
+  }
+  ctx.drawImage(img, b.x, b.y, b.w, b.h);
 }
 function draw() {
   if (!bg) return;
@@ -216,6 +238,7 @@ function load(file) {
     bg = img; heads = [];
     c.width = img.width; c.height = img.height;  // draw() adds the stats strip
     c.hidden = false; $("drop").hidden = true; $("download").disabled = $("copy").disabled = false;
+    $("code").hidden = !planned();  // only a base that came from the mod can be turned back into blocks
     URL.revokeObjectURL(img.src);
     draw();
   };
@@ -267,6 +290,18 @@ $("download").onclick = () => c.toBlob(blob => {
   a.href = URL.createObjectURL(blob); a.download = "attack-plan.png"; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }, "image/png");
+// the code CCNotify reads: "w,h;mob,x,z;..." in blocks from the base's north-west corner, deflated and base64url'd
+$("code").onclick = async () => {
+  const ppb = +geo.ppb;
+  const text = [`${geo.w},${geo.h}`,
+    ...heads.map(h => `${h.mob},${Math.round(h.x / ppb)},${Math.round(h.y / ppb)}`)].join(";");
+  const packed = new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("deflate-raw")));
+  const bytes = new Uint8Array(await packed.arrayBuffer());
+  const code = "CC1." + btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  await navigator.clipboard.writeText(code);
+  $("code").textContent = "Copied!";
+  setTimeout(() => $("code").textContent = "Copy plan code", 1200);
+};
 $("copy").onclick = async () => {  // Promise<Blob> keeps the click activation
   await navigator.clipboard.write([new ClipboardItem({ "image/png": new Promise(res => c.toBlob(res, "image/png")) })]);
   $("copy").textContent = "Copied!";
